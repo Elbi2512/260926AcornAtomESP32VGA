@@ -1,0 +1,128 @@
+{
+	"folders": [
+		{
+			"path": "../../220613ESP01-ZLED"
+		},
+		{
+			"name": "220628ESPOM64",
+			"path": "../../220628ESPOM64"
+		},
+		{
+			"name": "220701DMXZon",
+			"path": "../../220701DMXZon"
+		},
+		{
+			"name": "ESP-WEB-Decoder-main",
+			"path": "../../ESP-WEB-Decoder-main"
+		},
+		{
+			"name": "220811S88Sniffer",
+			"path": "../../220811S88Sniffer"
+		},
+		{
+			"name": "220813HSI88Sniffer",
+			"path": "../../220813HSI88Sniffer"
+		},
+		{
+			"name": "220814CircBuff",
+			"path": "../../220814CircBuff"
+		},
+		{
+			"name": "220815RNs88Sock",
+			"path": "../../220815RNs88Sock"
+		},
+		{
+			"name": "220818SSE",
+			"path": "../../220818SSE"
+		},
+		{
+			"name": "220819NFC",
+			"path": "../../220819NFC"
+		},
+		{
+			"name": "220920Dummy8266",
+			"path": "../../220920Dummy8266"
+		},
+		{
+			"name": "220104S88DynBlok",
+			"path": "../../220104S88DynBlok"
+		},
+		{
+			"name": "191219 loclift",
+			"path": "../../191219 loclift"
+		},
+		{
+			"name": "200126krik",
+			"path": "../../../../../../Dropbox/My PC (LAPTOP-N7P93PU7)/Documents/PlatformIO/Projects/200126krik"
+		},
+		{
+			"name": "230303Draaischijf",
+			"path": "../../230303Draaischijf"
+		},
+		{
+			"name": "230306TMC2209",
+			"path": "../../230306TMC2209"
+		},
+		{
+			"name": "230307Stepper2209",
+			"path": "../../230307Stepper2209"
+		},
+		{
+			"name": "200526tlc5940fade",
+			"path": "../../200526tlc5940fade"
+		},
+		{
+			"name": "200524a DCC Sein",
+			"path": "../../200524a DCC Sein"
+		},
+		{
+			"name": "230326Slagboom",
+			"path": "../../230326Slagboom"
+		},
+		{
+			"name": "230327demoff",
+			"path": "../../230327demoff"
+		},
+		{
+			"name": "230413LoopNano",
+			"path": "../../230413LoopNano"
+		},
+		{
+			"name": "230417wissel4",
+			"path": "../../230417wissel4"
+		},
+		{
+			"name": "230417omnvrom",
+			"path": "../../230417omnvrom"
+		},
+		{
+			"name": "32Atom",
+			"path": "../../32Atom"
+		},
+		{
+			"name": "210823sdcard",
+			"path": "../../210823sdcard"
+		},
+		{
+			"name": "200530ffpico",
+			"path": "../../200530ffpico"
+		},
+		{
+			"name": "200530VGAHelloWorld",
+			"path": "../../200530VGAHelloWorld"
+		},
+		{
+			"name": "200531keffe",
+			"path": ".."
+		},
+		{
+			"name": "230531SDtest",
+			"path": "../../230531SDtest"
+		},
+		{
+			"name": "230607ZX-ESPectrum",
+			"path": "../../230607ZX-ESPectrum"
+		}
+	],
+	"settings": {}
+}

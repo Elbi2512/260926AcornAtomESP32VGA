@@ -1,0 +1,168 @@
+{
+	"folders": [
+		{
+			"path": "..\\..\\200126krik"
+		},
+		{
+			"name": "200822KapschuurNS",
+			"path": "..\\..\\200822KapschuurNS"
+		},
+		{
+			"name": "200822Luxmeter Studeerkamer",
+			"path": "..\\..\\200822Luxmeter Studeerkamer"
+		},
+		{
+			"name": "190705 ESP Tuinhuis",
+			"path": "..\\..\\190705 ESP Tuinhuis"
+		},
+		{
+			"name": "200825Tuinhek",
+			"path": "..\\..\\200825Tuinhek"
+		},
+		{
+			"name": "200524a DCC Sein",
+			"path": "..\\..\\200524a DCC Sein"
+		},
+		{
+			"name": "200831SeinCharlie",
+			"path": "..\\..\\200831SeinCharlie"
+		},
+		{
+			"name": "200910Steppertest",
+			"path": "..\\..\\200910Steppertest"
+		},
+		{
+			"name": "200924Disco",
+			"path": "..\\..\\200924Disco"
+		},
+		{
+			"name": "191219 loclift",
+			"path": "..\\..\\191219 loclift"
+		},
+		{
+			"name": "201026charlieLedlant",
+			"path": "..\\..\\201026charlieLedlant"
+		},
+		{
+			"name": "201111DMX slave",
+			"path": "..\\..\\201111DMX slave"
+		},
+		{
+			"name": "201122ESPNow Master",
+			"path": "..\\..\\201122ESPNow Master"
+		},
+		{
+			"name": "201122ESPNow Slave",
+			"path": "..\\..\\201122ESPNow Slave"
+		},
+		{
+			"name": "201122DMX Slave ESP32",
+			"path": "..\\..\\201122DMX Slave ESP32"
+		},
+		{
+			"name": "201122DMX Sent ESP32",
+			"path": "..\\..\\201122DMX Sent ESP32"
+		},
+		{
+			"name": "201222ESPWifiHuis",
+			"path": "..\\..\\201222ESPWifiHuis"
+		},
+		{
+			"name": "esp01ff",
+			"path": "..\\..\\esp01ff"
+		},
+		{
+			"name": "201223Nachtgen",
+			"path": "..\\..\\201223Nachtgen"
+		},
+		{
+			"name": "200526tlc5940fade",
+			"path": "..\\..\\200526tlc5940fade"
+		},
+		{
+			"name": "201224Lantarenpaal",
+			"path": "..\\..\\201224Lantarenpaal"
+		},
+		{
+			"name": "201226FlashLantaarn",
+			"path": "..\\..\\201226FlashLantaarn"
+		},
+		{
+			"name": "201227DMXzon",
+			"path": "..\\..\\201227DMXzon"
+		},
+		{
+			"name": "201227HSI88Nano",
+			"path": "..\\..\\201227HSI88Nano"
+		},
+		{
+			"name": "201228HSI88Mega",
+			"path": "..\\..\\201228HSI88Mega"
+		},
+		{
+			"name": "201227ESP32RGBW",
+			"path": "..\\..\\201227ESP32RGBW"
+		},
+		{
+			"name": "210101DCCMultiThreadLantaarn",
+			"path": "..\\..\\210101DCCMultiThreadLantaarn"
+		},
+		{
+			"name": "210102S88Nano",
+			"path": "..\\..\\210102S88Nano"
+		},
+		{
+			"name": "210207DMXZon",
+			"path": "..\\..\\210207DMXZon"
+		},
+		{
+			"name": "210209Discovloerslave",
+			"path": "..\\..\\210209Discovloerslave"
+		},
+		{
+			"name": "grblForRAMPS-master",
+			"path": "..\\..\\grblForRAMPS-master"
+		},
+		{
+			"name": "210329BgAmbi",
+			"path": "..\\..\\210329BgAmbi"
+		},
+		{
+			"name": "210330AbiRGB",
+			"path": "..\\..\\210330AbiRGB"
+		},
+		{
+			"path": "..\\..\\191224 meetstroom"
+		},
+		{
+			"name": "32Atom",
+			"path": "..\\..\\32Atom"
+		},
+		{
+			"name": "210506ESP32FS demo",
+			"path": "..\\..\\210506ESP32FS demo"
+		},
+		{
+			"name": "200529Atom",
+			"path": "..\\..\\200529Atom"
+		},
+		{
+			"name": "200531keffe",
+			"path": ".."
+		},
+		{
+			"name": "200531kb",
+			"path": "..\\..\\200531kb"
+		},
+		{
+			"name": "210513keyboard extend",
+			"path": "..\\..\\210513keyboard extend"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"functional": "cpp",
+			"*.tcc": "cpp"
+		}
+	}
+}

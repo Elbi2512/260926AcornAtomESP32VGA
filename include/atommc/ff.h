@@ -1,4 +1,5 @@
 #include "FS.h"
+#include <ff.h>
 //#include "SPIFFS.h"
 /* Character code support macros */
 
@@ -9,7 +10,6 @@
 #define IsDBCS2(c) 0
 
 typedef unsigned char BYTE;
-// typedef size_t WORD;
 
 //#define WORD size_t
 /* typedef struct _FILINFO_

@@ -22,7 +22,7 @@
 #include "roms.h"
 #include "FS.h"
 
-//#include <esp_bt.h>
+#include <esp_bt.h>
 #include "driver/timer.h"
 #include "soc/timer_group_struct.h"
 #include "atom.h"
@@ -30,12 +30,11 @@
 
 extern int fileOpen(char *);
 extern int filenum;
-extern int drawscr;
-extern File existFile(fs::FS &fs, const char *path);
-
 // extern uint8_t *rom;
 File dir;
 int numTabs = 1;
+
+// void listFilesInDir(File, int);
 
 // Pins for PS/2 Interface (some USB keyboards WORK)
 static const int DATA_PIN = 32;  // USB D-;
@@ -815,6 +814,7 @@ uint8_t fontdata[] =
         0x00,
         0x00,
 };
+
 extern void initmem();
 extern void loadroms();
 extern void reset6502();
@@ -828,52 +828,21 @@ extern void resetvia();
 //
 extern void atom_reset(int);
 extern void atom_run();
-extern void sdInit();
 
 uint8_t irq_num;
 
 byte key[128];
-
-QueueHandle_t vidQueue;
-TaskHandle_t videoTaskHandle;
-volatile bool videoTaskIsRunning = false;
-uint16_t *param;
 
 // SETUP *************************************
 VGA3BitI vga;
 
 void IRAM_ATTR mount_spiffs()
 {
-  if (!SPIFFS.begin(true))
+  if (!SPIFFS.begin())
   {
     // errorHalt(ERR_MOUNT_FAIL);
   }
   vTaskDelay(2);
-}
-
-// VIDEO core 0 *************************************
-
-void videoTask(void *unused)
-{
-  videoTaskIsRunning = true;
-  uint16_t *param;
-
-  while (1)
-  {
-    xQueuePeek(vidQueue, &param, portMAX_DELAY);
-    if ((int)param == 1)
-      break;
-
-    xQueueReceive(vidQueue, &param, portMAX_DELAY);
-    videoTaskIsRunning = false;
-  }
-
-  videoTaskIsRunning = false;
-  vTaskDelete(NULL);
-
-  while (1)
-  {
-  }
 }
 
 void swap_flash(word *a, word *b)
@@ -883,48 +852,20 @@ void swap_flash(word *a, word *b)
   *b = temp;
 }
 
-void list()
-{
-  Serial.println(__func__);
-  Serial.print("List Dir Dirwaarde: ");
-  Serial.println(dir);
-  File tmp = dir.openNextFile();
-  while (tmp)
-  {
-    Serial.printf("File: %s\r\n", tmp.name());
-    tmp = dir.openNextFile();
-  }
-  tmp.rewindDirectory();
-  Serial.println(__LINE__);
-}
-
-void drawl(int line, int och, int ch, int pos)
-{
-  vga.drawli(line, och, ch, pos);
-}
-
-void listDir(char *dir)
-{
-
-  File root = SPIFFS.open(dir);
-
-  File file = root.openNextFile();
-
-  while (file)
-  {
-
-    Serial.print("FILE: ");
-    Serial.println(file.name());
-
-    file = root.openNextFile();
-  }
-}
+// void list()
+// {
+//   Serial.println(__func__);
+//   Serial.print("List Dir Dirwaarde: ");
+//   Serial.println(dir);
+//   // listFilesInDir(dir, 1);
+//   Serial.println(__LINE__);
+// }
 
 void setup()
 {
   // Turn off peripherals to gain memory (?do they release properly)
-  esp_bt_controller_deinit();
-  esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
+  //  esp_bt_controller_deinit();
+  //  esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
   Serial.begin(115200);
 
   Serial.printf("HEAP BEGIN %d\n", ESP.getFreeHeap());
@@ -933,45 +874,24 @@ void setup()
   vga.init(vga.MODE320x240.custom(256, 192), RED_PIN, GREEN_PIN, BLUE_PIN, HSYNC_PIN, VSYNC_PIN);
   Serial.printf("HEAP after vga  %d \n", ESP.getFreeHeap());
   vga.clear(0);
-  // kb_begin();
-  // kbd.begin();
-  // kbd.enaIRQ();
+  kbd.begin();
+  kbd.enaIRQ();
+  SPI.begin(SCK, MISO, MOSI, CS);
+  if (!SD.begin(CS, SPI, 80000000))
+  {
+    Serial.println("SD card mount failed");
+  }
+  else
+  {
+    Serial.println("SD card mounted");
+  }
   Serial.printf("%s bank %u: %ub\n", MSG_FREE_HEAP_AFTER, 0, ESP.getFreeHeap());
 
   Serial.printf("%s %u\n", MSG_EXEC_ON_CORE, xPortGetCoreID());
   Serial.printf("%s 6502 RESET: %ub\n", MSG_FREE_HEAP_AFTER, ESP.getFreeHeap());
 
-  vidQueue = xQueueCreate(1, sizeof(uint16_t *));
-  xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024 * 2, NULL, 5, &videoTaskHandle, 0);
   Serial.printf("HEAP after vga  %d \n", ESP.getFreeHeap());
-
-  // listDir(SD, "/", 0);
-
-  // BYTE b = existFile(SD, "/LB");
-  // Serial.printf("Besand bestaat: %d\r\n", b);
-
-  initmem();
-  Serial.printf("HEAP after initmem  %X \n", ESP.getFreeHeap());
-  loadroms();
-  Serial.printf("HEAP after loadroms  %X \n", ESP.getFreeHeap());
-  reset6502();
-  Serial.printf("HEAP after reset6502  %X \n", ESP.getFreeHeap());
-  init8255();
-  debugon = false;
-  resetvia();
-  //
-  atom_reset(0);
-  Serial.print("Setup: MAIN Executing on core ");
-  Serial.println(xPortGetCoreID());
-  Serial.print("Free Heap: ");
-  // Serial.println(system_get_free_heap_size(), HEX);
-
-  for (int c = 0; c < 128; c++)
-  {
-    keylookup[c] = c;
-    key[c] = 0;
-  }
-  // sdInit(); // sd card init
+ 
   Serial.println(F("Inizializing FS..."));
   mount_spiffs();
 
@@ -979,22 +899,41 @@ void setup()
 
   unsigned int totalBytes = SPIFFS.totalBytes();
   unsigned int usedBytes = SPIFFS.usedBytes();
-  //  dir = SPIFFS.open("/");
-  Serial.println("\n----DIR: /");
-  listDir("/");
 
-  Serial.println("\n----DIR: /ATAP:");
-  listDir("/ATAP");
+  Serial.println("===== File system info =====");
 
-  Serial.println("\n----DIR: /folder1/nested:");
-  listDir("/FOLDER1/NESTED");
+  Serial.print("Total space:      ");
+  Serial.print(totalBytes);
+  Serial.println(" byte");
 
-  Serial.println("\n----DIR: /nested:");
-  listDir("/nested");
-dir = SPIFFS.open("/");
-  // list();
-  //  Serial.printf("%X\r\n", SD);
-  //   existFile(SD, "/MENU");
+  Serial.print("Total space used: ");
+  Serial.print(usedBytes);
+  Serial.println(" byte");
+
+  Serial.println();
+
+  // Open dir folder
+  dir = SD.open("/");
+
+  initmem();
+  Serial.printf("HEAP after initmem  %d \n", ESP.getFreeHeap());
+  loadroms();
+  Serial.printf("HEAP after loadroms  %d \n", ESP.getFreeHeap());
+  reset6502();
+  Serial.printf("HEAP after reset6502  %d \n", ESP.getFreeHeap());
+  init8255();
+  debugon = false;
+  resetvia();
+  //
+  atom_reset(0);
+  Serial.print("Setup: MAIN Executing on core ");
+  Serial.println(xPortGetCoreID());
+
+  for (int c = 0; c < 128; c++)
+  {
+    keylookup[c] = c;
+    key[c] = 0;
+  }
   Serial.println("End of setup");
 }
 
@@ -1005,11 +944,11 @@ void do_keyboard()
   uint8_t scancode_LOW;
   uint8_t scancode_MED;
   uint8_t keyt;
-  uint8_t scancode_HIGH = // kbd.read();
+  uint8_t scancode_HIGH = kbd.read();
   delay(5);
-  if (// kbd.available())
+  if (kbd.available())
   {
-    scancode_LOW = // kbd.read();
+    scancode_LOW = kbd.read();
     scancode = scancode_HIGH << 8 | scancode_LOW;
     // Serial.print("Keyb OF F: ");    // hier kan ook de E0 komen. F0 zet toets uit, E0 zet de key aan.
     // Serial.println(scancode, HEX); // als de low een F0 is, dan nikx doen... is extended code
@@ -1034,9 +973,9 @@ void do_keyboard()
     keyt = scancode;
     // Serial.printf("key: %x, aan: %d\r\n", keyt, bAan);
   }
-  if (// kbd.available())
+  if (kbd.available())
   {
-    scancode_MED = // kbd.read(); // hier wordt de OFF overruled. De Scancode med zetten we uit...
+    scancode_MED = kbd.read(); // hier wordt de OFF overruled. De Scancode med zetten we uit...
     scancode = scancode_HIGH << 16 | scancode_LOW << 8 | scancode_MED;
     // Serial.print("Keyb OFF2: ");
     if (scancode_HIGH == 0xe0 && scancode_LOW == 0xf0)
@@ -1052,11 +991,6 @@ void do_keyboard()
     key[keyt] = bAan;
     switch (keyt)
     {
-    case 0x01:
-      // list();
-      Serial.println("F9");
-      vga.scroll(1, GREEN);
-      break;
     case 0x07:
       atom_reset(0);
     case 0x11:
@@ -1088,14 +1022,8 @@ void loop()
 
   ts1 = millis();
   atom_run();
-  // Serial.printf("Tijd: %05d   \r", millis()-ts1);
-  // ts2 = millis();
-  xQueueSend(vidQueue, &param, portMAX_DELAY);
-
-  while (videoTaskIsRunning)
-  {
-  }
-  while (// kbd.available())
+  ts2 = millis();
+  while (kbd.available())
   {
     do_keyboard();
   }
@@ -1104,7 +1032,6 @@ void loop()
   TIMERG0.wdt_feed = 1;
   TIMERG0.wdt_wprotect = 0;
   vTaskDelay(0); // important to avoid task watchdog timeouts - change this to slow down emu
-                 // Serial.printf("Tijd: %05d   \r", millis()-ts1);
 }
 
 void fastBox(int x, int y, int l, int b, int kleur)
@@ -1206,3 +1133,9 @@ void dotFast(int x, int y, int kleur)
     vga.dotFast(x, y, tab[kleur]);
   }
 }
+
+void drawl(int line, int och, int ch, int pos)
+{
+  vga.drawli(line, och, ch, pos);
+}
+

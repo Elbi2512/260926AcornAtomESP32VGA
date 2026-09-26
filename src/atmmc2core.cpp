@@ -6,7 +6,7 @@
 #include "atommc/atmmc2def.h"
 #include "atommc/atmmc2io.h"
 #include <string.h>
-#include "ff.h"
+#include "atommc/ff.h"
 
 void SaveEE(void);
 extern char configByte;
@@ -17,6 +17,7 @@ extern BYTE globalIndex;
 extern WORD globalAmount;
 extern BYTE globalDataPresent;
 extern int filenum;
+
 
 #if (PLATFORM == PLATFORM_PIC)
 #define LatchedData PORTD

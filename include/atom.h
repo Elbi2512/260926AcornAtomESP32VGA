@@ -517,7 +517,8 @@ void loadroms();
 void dumpram();
 
 void initvideo();
-void drawline(int l);
+void drawline(int);
+//extern void drawl(int, int, int, int);
 void updatepal();
 
 void reset8271();

@@ -20,6 +20,7 @@ extern void load_rom(String, uint8_t *);
 // extern 	Color **backBuffer;
 extern uint8_t fontdata[];
 extern void drawl(int, int, int, int);
+
 #define TIMER1INT 0x40
 #define TIMER2INT 0x20
 #define PORTBINT 0x18
@@ -8875,7 +8876,7 @@ void drawline(int line)
           // the line of the framebuffer is 120 bytes long, however, we use only (in Atom mode) 96, since Clear 4 has only 192 points
           // So each bit of a byte (nwch) is spread over 4 bits of a byte in the scan line.
           // for now, we use only on and of, which is 0x00 or 0x20 or 0x,22, or 0x02 for the two green bits.
-          // drawl(line, svideo[nIndex], ch, px);
+          //drawl(line, svideo[nIndex], ch, px);
 
           // drawll(line, x + xx, semigrcol[(temp >> 6) | (css << 1)]);
           // drawll(line, x + xx + 1, semigrcol[(temp >> 6) | (css << 1)]);

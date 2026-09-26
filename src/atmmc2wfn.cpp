@@ -8,7 +8,7 @@
 #include "atommc/atmmc2io.h"
 #include "atom.h"
 #include "FS.h"
-#include "ff.h"
+#include "atommc/ff.h"
 #include "SD.h"
 #include "SPIFFS.h"
 #include "PS2Keyboard.h"
@@ -410,10 +410,15 @@ void wfnSetCWDirectory(void)
    sprintf(tekst, "/%s", (const char *)globalData);
    Serial.printf("%s, CWD: %s\r\n", __func__, tekst);
    // File ddir = SPIFFS.open(dir);
-   dir = SPIFFS.open(tekst);
+   for (char *p = tekst; *p != 0; ++p)
+   {
+      if (*p == '\\')
+         *p = '/';
+   }
+   dir = SD.open(tekst);
    if (!dir)
    {
-      dir = SPIFFS.open("/");
+      dir = SD.open("/");
       Serial.println("Onbekende map");
    }
    WriteDataPort(STATUS_COMPLETE | 0); // f_chdir((const XCHAR *)globalData));

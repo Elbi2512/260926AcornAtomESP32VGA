@@ -63,7 +63,7 @@ BYTE readFile(fs::FS &fs, const char *path);
 static BYTE file_exists(char name[])
 {
     // kbd.disIRQ();
-    if (SPIFFS.exists(name) == true)
+    if (SD.exists(name) == true)
     {
         // Serial.printf("%s: File found %d\n", __func__, __LINE__);
         return FR_OK;
@@ -90,7 +90,12 @@ FRESULT f_opena(File *fp, char *path, BYTE mode)
     mode &= (FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW);
     // Serial.printf("Mode: %x\n", mode);
 
-    sprintf(tekst, "/%s", (const char *)globalData);
+    snprintf(tekst, sizeof(tekst), "/%s", (const char *)globalData);
+    for (char *p = tekst; *p != 0; ++p)
+    {
+        if (*p == '\\')
+            *p = '/';
+    }
      Serial.println(tekst);
      Serial.printf("mode: %x\r\n", mode);
     // Serial.println(__LINE__);

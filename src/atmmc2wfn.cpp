@@ -42,8 +42,101 @@ File filedata[4];
 #define WILD_LEN 16
 
 char WildPattern[WILD_LEN + 1];
+char currentDirectory[PATHSIZE + 1] = "/";
 int fileOpen(BYTE);
 extern FRESULT f_opena(File *, char *, BYTE);
+
+static FRESULT normalizeDirectoryPath(const char *requestedPath, char *normalizedPath, size_t pathCapacity)
+{
+   char combinedPath[PATHSIZE + 1];
+   const char *path = (requestedPath && requestedPath[0]) ? requestedPath : currentDirectory;
+   int combinedLength;
+
+   if (path[0] == '/' || path[0] == '\\')
+      combinedLength = snprintf(combinedPath, sizeof(combinedPath), "%s", path);
+   else if (strcmp(currentDirectory, "/") == 0)
+      combinedLength = snprintf(combinedPath, sizeof(combinedPath), "/%s", path);
+   else
+      combinedLength = snprintf(combinedPath, sizeof(combinedPath), "%s/%s", currentDirectory, path);
+   if (combinedLength < 0 || (size_t)combinedLength >= sizeof(combinedPath) || pathCapacity < 2)
+      return FR_INVALID_NAME;
+
+   for (char *separator = combinedPath; *separator; separator++)
+      if (*separator == '\\')
+         *separator = '/';
+
+   size_t outputLength = 1;
+   normalizedPath[0] = '/';
+   normalizedPath[1] = '\0';
+   const char *component = combinedPath;
+   while (*component)
+   {
+      while (*component == '/')
+         component++;
+      if (!*component)
+         break;
+
+      const char *componentEnd = component;
+      while (*componentEnd && *componentEnd != '/')
+         componentEnd++;
+      size_t componentLength = (size_t)(componentEnd - component);
+
+      if (componentLength == 1 && component[0] == '.')
+      {
+         component = componentEnd;
+         continue;
+      }
+      if (componentLength == 2 && component[0] == '.' && component[1] == '.')
+      {
+         if (outputLength > 1)
+         {
+            while (outputLength > 1 && normalizedPath[outputLength - 1] != '/')
+               outputLength--;
+            if (outputLength > 1)
+               outputLength--;
+            normalizedPath[outputLength] = '\0';
+         }
+         component = componentEnd;
+         continue;
+      }
+
+      size_t separatorLength = outputLength > 1 ? 1 : 0;
+      if (outputLength + separatorLength + componentLength >= pathCapacity)
+         return FR_INVALID_NAME;
+      if (separatorLength)
+         normalizedPath[outputLength++] = '/';
+      memcpy(normalizedPath + outputLength, component, componentLength);
+      outputLength += componentLength;
+      normalizedPath[outputLength] = '\0';
+      component = componentEnd;
+   }
+
+   return FR_OK;
+}
+
+static FRESULT openDirectoryPath(const char *requestedPath)
+{
+   char normalizedPath[PATHSIZE + 1];
+   FRESULT result = normalizeDirectoryPath(requestedPath, normalizedPath, sizeof(normalizedPath));
+   if (result != FR_OK)
+      return result;
+
+   File requestedDirectory = SD.open(normalizedPath);
+   if (!requestedDirectory || !requestedDirectory.isDirectory())
+      return FR_NO_PATH;
+
+   strcpy(currentDirectory, normalizedPath);
+   dir = requestedDirectory;
+   dir.rewindDirectory();
+   return FR_OK;
+}
+
+void resetSdWorkingDirectory(void)
+{
+   strcpy(currentDirectory, "/");
+   dir = SD.open("/");
+   dir.rewindDirectory();
+}
 
 #ifdef INCLUDE_SDDOS
 
@@ -152,7 +245,7 @@ int fileOpen(BYTE mode)
    {
       file = &filedata[0];
       // The scratch file is fixed, so we are backwards compatible with 2.9 firmware
-      ret = f_opena(file, buf, mode);
+      ret = f_opena(file, globalData, mode);
       // ret = f_opena(dir, buf, mode);
 
       //&filedata[0], globalData, mode);
@@ -309,24 +402,15 @@ int fileOpen(BYTE mode)
 
 void wfnDirectoryOpen(void)
 {
-   // Serial.println(__func__);
-   //  Separate wildcard and path
-   //kbd.disIRQ();
-
    GetWildcard();
-   /*
-   res = 0;
-   f_opendir(&dir, (char *)globalData);
-   if (FR_OK != res)
+   FRESULT result = openDirectoryPath(globalData);
+   if (result != FR_OK)
    {
-      WriteDataPort(STATUS_COMPLETE | res);
+      WriteDataPort(STATUS_COMPLETE | result);
       return;
    }
-*/
-   //kbd.enaIRQ();
    WriteDataPort(STATUS_OK);
 }
-
 void listFilesInDir(File ddir)
 {
    FILINFO *filinfo = &filinfodata[0];
@@ -406,22 +490,8 @@ void wfnDirectoryRead(void)
 
 void wfnSetCWDirectory(void)
 {
-   char tekst[40];
-   sprintf(tekst, "/%s", (const char *)globalData);
-   Serial.printf("%s, CWD: %s\r\n", __func__, tekst);
-   // File ddir = SPIFFS.open(dir);
-   for (char *p = tekst; *p != 0; ++p)
-   {
-      if (*p == '\\')
-         *p = '/';
-   }
-   dir = SD.open(tekst);
-   if (!dir)
-   {
-      dir = SD.open("/");
-      Serial.println("Onbekende map");
-   }
-   WriteDataPort(STATUS_COMPLETE | 0); // f_chdir((const XCHAR *)globalData));
+   FRESULT result = openDirectoryPath(globalData);
+   WriteDataPort(STATUS_COMPLETE | result);
 }
 
 void wfnFileOpenRead(void)
@@ -462,114 +532,59 @@ void wfnFileOpenRAF(void)
 
 void wfnFileGetInfo(void)
 {
-   // Serial.println(__func__);
-   /*  FIL *fil = &fildata[filenum];
-   FILINFO *filinfo = &filinfodata[filenum];
-   union
+   memset(globalData, 0, 13);
+   if (filenum < 0 || filenum >= 4 || !filedata[filenum])
    {
-      DWORD dword;
-      char byte[4];
-   } dwb;
-   //dwb.dword = fil->fsize;
-   globalData[0] = dwb.byte[0];
-   globalData[1] = dwb.byte[1];
-   globalData[2] = dwb.byte[2];
-   globalData[3] = dwb.byte[3];
+      WriteDataPort(STATUS_COMPLETE | ERROR_NO_DATA);
+      return;
+   }
 
-   //dwb.dword = (DWORD)(fil->org_clust - 2) * fatfs.csize + fatfs.database;
-   globalData[4] = dwb.byte[0];
-   globalData[5] = dwb.byte[1];
-   globalData[6] = dwb.byte[2];
-   globalData[7] = dwb.byte[3];
-
-   dwb.dword = fil->fptr;
-   globalData[8] = dwb.byte[0];
-   globalData[9] = dwb.byte[1];
-   globalData[10] = dwb.byte[2];
-   globalData[11] = dwb.byte[3];
-
-   //globalData[12] = filinfo->fattrib & 0x3f;
-*/
+   File *file = &filedata[filenum];
+      uint32_t values[3] = {
+         static_cast<uint32_t>(file->size()),
+         0,
+         static_cast<uint32_t>(file->position())};
+      for (size_t valueIndex = 0; valueIndex < 3; valueIndex++)
+      {
+        for (size_t byteIndex = 0; byteIndex < 4; byteIndex++)
+         globalData[valueIndex * 4 + byteIndex] = (values[valueIndex] >> (byteIndex * 8)) & 0xff;
+      }
+   globalData[12] = AM_ARC;
    WriteDataPort(STATUS_OK);
-   // Serial.println(__LINE__);
 }
 
 extern FRESULT f_read(File *, char *, size_t, size_t *);
 
 void wfnFileRead(void)
 {
-   Serial.println(__func__);
-   // int ret;
-   //  FIL *fil = &fildata[filenum];
+   if (filenum < 0 || filenum >= 4 || !filedata[filenum])
+   {
+      WriteDataPort(STATUS_COMPLETE | ERROR_NO_DATA);
+      return;
+   }
+
    File *file = &filedata[filenum];
-   size_t read;
-   int leen;
+   size_t read = 0;
    if (globalAmount == 0)
-   {
       globalAmount = 256;
-   }
-   // kbd.disIRQ();
-   Serial.print("File grootte: ");
-   Serial.println(file->size());
+   if (globalAmount > 256)
+      globalAmount = 256;
 
-   // ret = 0;
-   f_read(file, globalData, globalAmount, &read);
-   /* Read and display data */
-   // fread(buffer, strlen(c) + 1, 1, fp);
-   /*
-   //Serial.printf("readSPIFFS size=%d, filename: %s, filehandle: %d\n", leen, file->name(), *file);
-   int n = file->size();
-   char *buff = (char *)malloc(n + 1);
-   //Serial.printf("readSPIFFS size=%d\n", n);
-
-   read = file->readBytes(buff, n);
-   //Serial.print("Gelezen: ");
-   //Serial.println(read);
-
-   for (int i = 0; i < read; i++)
+   memset(globalData, 0, 256);
+   FRESULT readStatus = f_read(file, globalData, globalAmount, &read);
+   if (readStatus != FR_OK)
    {
-      //uint8_t koos = file->read();
-      //buff[i] = koos;
-      //Serial.printf("%X ", buff[i]);
+      WriteDataPort(STATUS_COMPLETE | readStatus);
+      return;
    }
-   // read = file->size();
-   //Serial.println();
-   for (int j = 0; j < read; j++)
+   if (read < globalAmount)
    {
-      globalData[j] = buff[j];
-      //Serial.print(globalData[j], HEX);
-      //Serial.print(" ");
-   }
-   //Serial.println();
-   //file->close();
-   free(buff);
-
-   //read = file->readBytes((char *)globalData, leen);
-   //globalAmount);
-   //Serial.print("Global ammount: ");
-   //Serial.println(globalAmount);
-
-   //Serial.printf("Bytes gelezen: %d, file: ", read);
-   //byte i = f1.readBytes((char *)ibuffer, 64); // i = number of bytes placed in buffer from file f1
-   */
-   if (filenum > 0 && globalAmount != read)
-   {
-      // Serial.println("STATUS_EOF ");
       WriteDataPort(STATUS_EOF);
    }
    else
    {
-      // uint8_t r = (uint8_t)read;
-      res = read;
-      // Serial.print("STATUS_COMPLETE | read ");
-      // Serial.println(STATUS_COMPLETE); // | read);
-      WriteDataPort(STATUS_COMPLETE); // | res);
+      WriteDataPort(STATUS_COMPLETE);
    }
-   // Serial.printf("Bytes gelezen: %d, file: ", read);
-   // Serial.print(*file);
-   // Serial.printf(", filenum: %d\r\n", filenum);
-   // Serial.println(__LINE__);
-   // kbd.enaIRQ();
 }
 /*
 static bool file_exists(char name[])

@@ -5968,11 +5968,11 @@ int keys[16][6] =
         {0, KEY_3, KEY_MINUS, KEY_G, KEY_Q, KEY_ESC},
         {0, KEY_2, KEY_COMMA, KEY_F, KEY_P, KEY_Z},
         {KEY_UP, KEY_1, KEY_SEMICOLON, KEY_E, KEY_O, KEY_Y},
-        {KEY_RIGHT, KEY_0, KEY_QUOTE, KEY_D, KEY_N, KEY_X},
+        {KEY_RIGHT, KEY_0, KEY_MONKEYTALE, KEY_D, KEY_N, KEY_X},
         {KEY_CAPSLOCK, KEY_BACKSPACE, KEY_9, KEY_C, KEY_M, KEY_W},
-        {KEY_TAB, KEY_END, KEY_8, KEY_B, KEY_L, KEY_V},
+        {0, ATOM_MATRIX_COPY_ID, KEY_8, KEY_B, KEY_L, KEY_V},
         {KEY_CLOSEBRACE, KEY_ENTER, KEY_7, KEY_A, KEY_K, KEY_U},
-        {KEY_BACKSLASH, 0, KEY_6, KEY_EQUALS, KEY_J, KEY_T},
+        {KEY_BACKSLASH, 0, KEY_6, 0x55, KEY_J, KEY_T},
         {KEY_OPENBRACE, 0, KEY_5, KEY_SLASH, KEY_I, KEY_S},
         {KEY_SPACE, 0, KEY_4, KEY_STOP, KEY_H, KEY_R}};
 
@@ -7868,7 +7868,8 @@ void init8255()
   {
     for (d = 0; d < 6; d++)
     {
-      keyl[keys[c][d]] = c | (d << 4) | 0x80;
+      if (keys[c][d] != 0)
+        keyl[keys[c][d]] = c | (d << 4) | 0x80;
     }
   }
 }

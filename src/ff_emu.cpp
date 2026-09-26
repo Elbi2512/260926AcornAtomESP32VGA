@@ -190,31 +190,22 @@ FRESULT f_read(
     size_t *br  /* Pointer to number of bytes read */
 )
 {
-     Serial.println(__func__);
-    // kbd.disIRQ();
-    FRESULT status = (FRESULT)0;
-    DWORD ptrpos;
-    int bytesread;
-    int error;
+    if (br == NULL)
+        return FR_INVALID_PARAMETER;
+    *br = 0;
+    if (fp == NULL || !*fp || buff == NULL)
+        return FR_INVALID_OBJECT;
 
-    ptrpos = fp->position();
+    uint32_t position = fp->position();
+    uint32_t file_size = fp->size();
+    if (position >= file_size || btr == 0)
+        return FR_OK;
 
-      bytesread = fp->readBytes(buff, btr);
-      *br = bytesread;
-
-   // Serial.printf("f_read(%d) offset=%d[%04X],result=%d\n", btr, ptrpos, ptrpos, *br);
-   // HexDumpHead(buff, btr);
-
+    size_t remaining = file_size - position;
+    size_t request = btr < remaining ? btr : remaining;
+    *br = fp->readBytes(buff, request);
     update_FIL(fp, 0, 0);
-
-    if (bytesread < 0)
-    {
-        error = errno;
-        status = (FRESULT)error;
-    }
-    status = FR_OK;
-    // kbd.enaIRQ();
-    return status;
+    return FR_OK;
 }
 
 FRESULT f_write(

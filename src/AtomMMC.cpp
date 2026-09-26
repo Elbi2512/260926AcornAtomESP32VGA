@@ -37,12 +37,14 @@ char globalData[256];
 char configByte;
 char blVersion;
 extern char MMCPath[PATHSIZE + 1];
+extern void resetSdWorkingDirectory(void);
 static char EEPath[PATHSIZE + 1];
 
 void InitMMC(void)
 {
     //rpclog("InitMMC()\n");
     Serial.println(__func__);
+    resetSdWorkingDirectory();
     // Setup base MMC path
     //saferealpath(BaseMMCPath, MMCPath);
     //strcpy(BaseMMCPath, MMCPath);

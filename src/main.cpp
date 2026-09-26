@@ -37,79 +37,78 @@ int numTabs = 1;
 // void listFilesInDir(File, int);
 
 // Pins for PS/2 Interface (some USB keyboards WORK)
-static const int DATA_PIN = 32;  // USB D-;
-static const int CLOCK_PIN = 33; // USB D+;
+static const int DATA_PIN = 32;
+static const int CLOCK_PIN = 33;
 extern unsigned int shift, ctrl, alt;
-
 PS2Keyboard kbd(DATA_PIN, CLOCK_PIN);
 
 uint8_t fontdata[] =
-    {
-        0x00,
-        0x00,
-        0x00,
-        0x1c,
-        0x22,
-        0x02,
-        0x1a,
-        0x2a,
-        0x2a,
-        0x1c,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x08,
-        0x14,
-        0x22,
-        0x22,
-        0x3e,
-        0x22,
-        0x22,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x3c,
-        0x12,
-        0x12,
-        0x1c,
-        0x12,
-        0x12,
-        0x3c,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x1c,
-        0x22,
-        0x20,
-        0x20,
-        0x20,
-        0x22,
-        0x1c,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x3c,
-        0x12,
-        0x12,
-        0x12,
-        0x12,
-        0x12,
-        0x3c,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x3e,
-        0x20,
+  {
+    0x00,
+    0x00,
+    0x00,
+    0x1c,
+    0x22,
+    0x02,
+    0x1a,
+    0x2a,
+    0x2a,
+    0x1c,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x08,
+    0x14,
+    0x22,
+    0x22,
+    0x3e,
+    0x22,
+    0x22,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x3c,
+    0x12,
+    0x12,
+    0x1c,
+    0x12,
+    0x12,
+    0x3c,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x1c,
+    0x22,
+    0x20,
+    0x20,
+    0x20,
+    0x22,
+    0x1c,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x3c,
+    0x12,
+    0x12,
+    0x12,
+    0x12,
+    0x12,
+    0x3c,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x3e,
+    0x20,
         0x20,
         0x3c,
         0x20,
@@ -877,7 +876,7 @@ void setup()
   kbd.begin();
   kbd.enaIRQ();
   SPI.begin(SCK, MISO, MOSI, CS);
-  if (!SD.begin(CS, SPI, 80000000))
+  if (!SD.begin(CS, SPI, 20000000))
   {
     Serial.println("SD card mount failed");
   }
@@ -891,28 +890,6 @@ void setup()
   Serial.printf("%s 6502 RESET: %ub\n", MSG_FREE_HEAP_AFTER, ESP.getFreeHeap());
 
   Serial.printf("HEAP after vga  %d \n", ESP.getFreeHeap());
- 
-  Serial.println(F("Inizializing FS..."));
-  mount_spiffs();
-
-  // Get all information of SPIFFS
-
-  unsigned int totalBytes = SPIFFS.totalBytes();
-  unsigned int usedBytes = SPIFFS.usedBytes();
-
-  Serial.println("===== File system info =====");
-
-  Serial.print("Total space:      ");
-  Serial.print(totalBytes);
-  Serial.println(" byte");
-
-  Serial.print("Total space used: ");
-  Serial.print(usedBytes);
-  Serial.println(" byte");
-
-  Serial.println();
-
-  // Open dir folder
   dir = SD.open("/");
 
   initmem();
@@ -937,166 +914,124 @@ void setup()
   Serial.println("End of setup");
 }
 
+#if 0
 void do_keyboard()
 {
   uint32_t scancode = 0;
   bool bAan = false;
   uint8_t scancode_LOW;
   uint8_t scancode_MED;
-  uint8_t keyt;
-  uint8_t scancode_HIGH = kbd.read();
-  delay(5);
-  if (kbd.available())
+  void do_keyboard()
   {
-    scancode_LOW = kbd.read();
-    scancode = scancode_HIGH << 8 | scancode_LOW;
-    // Serial.print("Keyb OF F: ");    // hier kan ook de E0 komen. F0 zet toets uit, E0 zet de key aan.
-    // Serial.println(scancode, HEX); // als de low een F0 is, dan nikx doen... is extended code
-    if (scancode_HIGH == 0xf0)
-    {
-      bAan = false;        // de toets mag uit
-      keyt = scancode_LOW; // hier staat de goede waarde.
-      // Serial.printf("key: %x, aan: %d\r\n", keyt, bAan);
-    }
-    if (scancode_HIGH == 0xe0 && scancode_LOW != 0xf0)
-    {
-      bAan = true;
-      keyt = scancode_LOW; // hier staat de goede waarde.
-      // Serial.printf("key: %x, aan: %d\r\n", keyt, bAan);
-    }
-  }
-  else
-  {
-    scancode = scancode_HIGH;
-    // Serial.print("Keyb ON: "); // hier kan de key gewoon gestuurd worden
-    bAan = true;
-    keyt = scancode;
-    // Serial.printf("key: %x, aan: %d\r\n", keyt, bAan);
-  }
-  if (kbd.available())
-  {
-    scancode_MED = kbd.read(); // hier wordt de OFF overruled. De Scancode med zetten we uit...
-    scancode = scancode_HIGH << 16 | scancode_LOW << 8 | scancode_MED;
-    // Serial.print("Keyb OFF2: ");
-    if (scancode_HIGH == 0xe0 && scancode_LOW == 0xf0)
-    {
-      bAan = false;
-      keyt = scancode_MED; // hier staat de goede waarde.
-      // Serial.printf("key: %x, aan: %d\r\n", keyt, bAan);
-    }
-  }
-  // Serial.println(scancode, HEX);
-  if (keyt < 128)
-  {
-    key[keyt] = bAan;
-    switch (keyt)
-    {
-    case 0x07:
-      atom_reset(0);
-    case 0x11:
-      alt = bAan;
-      break;
-    case 0x12:
-    case 0x59:
-      shift = bAan;
-      break;
-    case 0x14:
-      ctrl = bAan;
-      break;
-    case 0x6b:
-      key[0x74] = bAan;
-      shift = bAan;
-      break;
-    case 0x75:
-      key[0x72] = bAan;
-      shift = bAan;
-      break;
-    }
-  }
-}
+    static bool keyReleased = false;
+    static bool rawKeyDown[128] = {};
+    uint8_t scancode = kbd.read();
+    if (scancode == 0xe0)
+      void do_keyboard()
+      {
+        static bool keyReleased = false;
+        static bool rawKeyDown[128] = {};
+        uint8_t scancode = kbd.read();
+        if (scancode == 0xe0)
+          return;
+        if (scancode == 0xf0)
+        {
+          keyReleased = true;
+          return;
+        }
 
-void loop()
-{
-  // static byte last_ts = 0;
-  unsigned long ts1, ts2;
+        bool keyDown = !keyReleased;
+        keyReleased = false;
+        if (scancode >= 128)
+          return;
 
-  ts1 = millis();
+        bool wasDown = rawKeyDown[scancode];
+        rawKeyDown[scancode] = keyDown;
+        bool physicalShift = rawKeyDown[0x12] || rawKeyDown[0x59];
+        bool syntheticShift = false;
+        bool suppressShift = false;
+        if (scancode == 0x07 && keyDown && !wasDown)
+          atom_reset(0);
+
+        memset(key, 0, sizeof(key[0]) * 128);
+        for (int sourceCode = 0; sourceCode < 128; sourceCode++)
+        {
+          if (!rawKeyDown[sourceCode])
+            continue;
+
+          int matrixCode = sourceCode;
+          if (sourceCode == KEY_TAB)
+            matrixCode = ATOM_MATRIX_COPY_ID;
+          else if (physicalShift && sourceCode == KEY_2)
+          {
+            matrixCode = 0x55;
+            suppressShift = true;
+          }
+          else if (physicalShift && sourceCode == KEY_8)
+            matrixCode = KEY_MONKEYTALE;
+          else if (physicalShift && sourceCode == KEY_9)
+            matrixCode = KEY_9;
+          else if (physicalShift && sourceCode == KEY_0)
+            matrixCode = KEY_0;
+          else if (physicalShift && sourceCode == KEY_7)
+            matrixCode = KEY_6;
+          else if (sourceCode == KEY_SEMICOLON && physicalShift)
+          {
+            matrixCode = KEY_MONKEYTALE;
+            suppressShift = true;
+          }
+          else if (sourceCode == KEY_MONKEYTALE)
+          {
+            matrixCode = physicalShift ? KEY_2 : KEY_7;
+            syntheticShift = !physicalShift;
+          }
+          else if (sourceCode == 0x55)
+          {
+            if (physicalShift)
+              matrixCode = KEY_SEMICOLON;
+            else
+            {
+              matrixCode = KEY_MINUS;
+              syntheticShift = true;
+            }
+          }
+          key[matrixCode] = true;
+        }
+
+        key[KEY_UP] = rawKeyDown[0x75] || rawKeyDown[0x72];
+        key[KEY_RIGHT] = rawKeyDown[0x74] || rawKeyDown[0x6b];
+        shift = (!suppressShift && physicalShift) || syntheticShift || rawKeyDown[0x72] || rawKeyDown[0x6b];
+        ctrl = rawKeyDown[0x14];
+        alt = rawKeyDown[0x11];
+      }
   atom_run();
   ts2 = millis();
   while (kbd.available())
-  {
     do_keyboard();
-  }
-
   TIMERG0.wdt_wprotect = TIMG_WDT_WKEY_VALUE;
   TIMERG0.wdt_feed = 1;
   TIMERG0.wdt_wprotect = 0;
-  vTaskDelay(0); // important to avoid task watchdog timeouts - change this to slow down emu
+  vTaskDelay(0);
 }
 
 void fastBox(int x, int y, int l, int b, int kleur)
 {
   for (int i = 0; i < l; i++)
-  {
     for (int j = 0; j < b; j++)
-    {
       vga.dotFast(i + y, j + x, kleur);
-    }
-  }
 }
 
 void SetTxt(int x, int y, int ch)
 {
   if (ch & 0x40)
   {
-    int kleur;
-
-    if (ch & 0x80)
-    {
-      kleur = RED;
-    }
-    else
-    {
-      kleur = YELLOW;
-    }
-    if (ch & 0x01)
-    {
-      fastBox(x + 8, y + 4, 4, 4, kleur);
-    }
-    else
-    {
-      fastBox(x + 8, y + 4, 4, 4, BLACK);
-    }
-    if (ch & 0x02)
-      fastBox(x + 8, y + 0, 4, 4, kleur);
-    else
-    {
-      fastBox(x + 8, y + 0, 4, 4, BLACK);
-    }
-    if (ch & 0x04)
-      fastBox(x + 4, y + 4, 4, 4, kleur);
-    else
-    {
-      fastBox(x + 4, y + 4, 4, 4, BLACK);
-    }
-    if (ch & 0x08)
-      fastBox(x + 4, y + 0, 4, 4, kleur);
-    else
-    {
-      fastBox(x + 4, y + 0, 4, 4, BLACK);
-    }
-    if (ch & 0x10)
-      fastBox(x + 0, y + 4, 4, 4, kleur);
-    else
-    {
-      fastBox(x + 0, y + 4, 4, 4, BLACK);
-    }
-    if (ch & 0x20)
-      fastBox(x + 0, y + 0, 4, 4, kleur);
-    else
-    {
-      fastBox(x + 0, y + 0, 4, 4, BLACK);
-    }
+    int kleur = (ch & 0x80) ? RED : YELLOW;
+    if (ch & 0x01) fastBox(x + 8, y + 4, 4, 4, kleur); else fastBox(x + 8, y + 4, 4, 4, BLACK);
+    if (ch & 0x02) fastBox(x + 8, y + 0, 4, 4, kleur); else fastBox(x + 8, y + 0, 4, 4, BLACK);
+    if (ch & 0x04) fastBox(x + 4, y + 4, 4, 4, kleur); else fastBox(x + 4, y + 4, 4, 4, BLACK);
+    if (ch & 0x08) fastBox(x + 4, y + 0, 4, 4, kleur); else fastBox(x + 4, y + 0, 4, 4, BLACK);
+    if (ch & 0x10) fastBox(x + 0, y + 4, 4, 4, kleur); else fastBox(x + 0, y + 4, 4, 4, BLACK);
+    if (ch & 0x20) fastBox(x + 0, y + 0, 4, 4, kleur); else fastBox(x + 0, y + 0, 4, 4, BLACK);
   }
   else
   {
@@ -1105,20 +1040,11 @@ void SetTxt(int x, int y, int ch)
     {
       for (int py = 0; py < 8; py++)
       {
+        bool pixel = (*(pix) & (1 << (7 - py))) != 0;
         if (ch & 0x80)
-        { // hoogste bit is gezet
-          if (*(pix) & (1 << (7 - py)))
-            vga.dotFast(py + y, px + x, BLACK);
-          else
-            vga.dotFast(py + y, px + x, GREEN);
-        }
+          vga.dotFast(py + y, px + x, pixel ? BLACK : GREEN);
         else
-        {
-          if (*(pix) & (1 << (7 - py)))
-            vga.dotFast(py + y, px + x, GREEN);
-          else
-            vga.dotFast(py + y, px + x, BLACK);
-        }
+          vga.dotFast(py + y, px + x, pixel ? GREEN : BLACK);
       }
       pix++;
     }
@@ -1129,13 +1055,10 @@ void dotFast(int x, int y, int kleur)
 {
   int tab[] = {GREEN, YELLOW, BLUE, RED, BLACK, WHITE};
   if (kleur < 6)
-  {
     vga.dotFast(x, y, tab[kleur]);
-  }
 }
 
 void drawl(int line, int och, int ch, int pos)
 {
   vga.drawli(line, och, ch, pos);
 }
-

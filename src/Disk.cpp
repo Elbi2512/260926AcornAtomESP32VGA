@@ -45,6 +45,7 @@
 
 extern char globalData[256];
 extern uint8_t irq_num;
+extern char currentDirectory[PATHSIZE + 1];
 
 void errorHalt(String errormsg);
 // void IRAM_ATTR kb_interruptHandler(void);
@@ -77,92 +78,36 @@ static BYTE file_exists(char name[])
 
 FRESULT f_opena(File *fp, char *path, BYTE mode)
 {
-    Serial.println(__func__);
-    // kbd.disIRQ();
-    BYTE exists;
-    char open_mode = 0;
-    int newfile;
-    FRESULT status = (FRESULT) 0;
-    char tekst[20];
-
-    // Get real path of file and check to see if it exists
-    //  //Serial.printf("Fopenpath: %s/%s\n", (const char *)globalData, path);
     mode &= (FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW);
-    // Serial.printf("Mode: %x\n", mode);
-
-    snprintf(tekst, sizeof(tekst), "/%s", (const char *)globalData);
-    for (char *p = tekst; *p != 0; ++p)
-    {
+    const char *filename = (path && path[0]) ? path : globalData;
+    char fullpath[PATHSIZE + 1];
+    int path_length;
+    if (filename[0] == '/' || filename[0] == '\\')
+        path_length = snprintf(fullpath, sizeof(fullpath), "%s", filename);
+    else if (strcmp(currentDirectory, "/") == 0)
+        path_length = snprintf(fullpath, sizeof(fullpath), "/%s", filename);
+    else
+        path_length = snprintf(fullpath, sizeof(fullpath), "%s/%s", currentDirectory, filename);
+    if (path_length < 0 || (size_t)path_length >= sizeof(fullpath))
+        return FR_INVALID_NAME;
+    for (char *p = fullpath; *p; ++p)
         if (*p == '\\')
             *p = '/';
-    }
-     Serial.println(tekst);
-     Serial.printf("mode: %x\r\n", mode);
-    // Serial.println(__LINE__);
-    // res = SPIFFS.open("/test.txt", FILE_WRITE);
-    // Serial.println(__LINE__);
-    exists = file_exists(tekst);
-    Serial.println(exists);
-    // Serial.println(__LINE__);
-    if (FR_OK == exists)
-    {
 
-        if (mode & FA_CREATE_NEW)
-        {
-            // Serial.println(__LINE__);
-            // kbd.enaIRQ();
-            return FR_EXIST;
-        }
+    bool exists = SD.exists(fullpath);
+    if (exists && (mode & FA_CREATE_NEW))
+        return FR_EXIST;
+    if (!exists && !(mode & (FA_OPEN_ALWAYS | FA_CREATE_NEW | FA_CREATE_ALWAYS)))
+        return FR_NO_FILE;
 
-        if (mode & FA_CREATE_ALWAYS)
-        {
-            // Serial.println(__LINE__);
-            open_mode = O_CREAT;
-        }
-        if (mode & (FA_READ | FA_WRITE))
-        {
-            // Serial.println(__LINE__);
-            if (mode & FA_WRITE)
-                open_mode |= O_RDWR;
-            else
-                open_mode |= O_RDONLY;
-            // Serial.println(__LINE__);
-        }
-        // Serial.println(__LINE__);
-    }
+    if (mode & FA_CREATE_ALWAYS)
+        SD.remove(fullpath);
+    if (mode & (FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW))
+        *fp = SD.open(fullpath, FILE_WRITE);
     else
-    {
-        // Serial.println(__LINE__);
-        if (mode & (FA_OPEN_ALWAYS | FA_CREATE_NEW | FA_CREATE_ALWAYS))
-        {
-            // Serial.println("Poging om file aan te maken");
-            // Serial.println(mode, HEX);
-            open_mode = O_CREAT | O_RDWR;
-        }
-        else
-        {
-            // Serial.println("File not found");
-            // kbd.enaIRQ();
-            return FR_NO_FILE;
-        }
-    }
-    Serial.printf("%s: %d\n", __func__, __LINE__);
-    // Serial.printf("File openmode: %x\n", open_mode);
+        *fp = SD.open(fullpath, FILE_READ);
 
-    if (open_mode == 0)
-    {
-         Serial.printf("Open ffile: %s, met modus: %s\n", tekst, "r");
-        *fp = SPIFFS.open(tekst, "r");
-    }
-    if (open_mode == 2)
-    {
-        // Serial.printf("Open ffile: %s, met modus: %s\n", tekst, "w");
-        *fp = SPIFFS.open(tekst, "w");
-    }
-    // kbd.enaIRQ();
-    Serial.printf("Status: %d, %s: %d\n", status, __func__, __LINE__);
- 
-    return status;
+    return *fp ? FR_OK : FR_NO_FILE;
 }
 
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels)

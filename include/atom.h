@@ -46,6 +46,7 @@
 #define KEY_ESC 0x76        // Keyboard ESCAPE
 #define KEY_BACKSPACE 0x66  // Keyboard DELETE (Backspace)
 #define KEY_TAB 0x0d        // Keyboard Tab
+#define ATOM_MATRIX_COPY_ID 0x7f
 #define KEY_SPACE 0x29      // Keyboard Spacebar
 #define KEY_MINUS 0x4e      // Keyboard - and _
 #define KEY_EQUALS 0x29     // Keyboard = and +

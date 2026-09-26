@@ -20,13 +20,13 @@ typedef unsigned char	BYTE;
 /* These types must be 16-bit integer */
 typedef short			SHORT;
 typedef unsigned short	USHORT;
-typedef unsigned short	WORD;
+typedef uint16_t	WORD;
 typedef unsigned short	WCHAR;
 
 /* These types must be 32-bit integer */
-typedef long			LONG;
-typedef unsigned long	ULONG;
-typedef unsigned long	DWORD;
+typedef uint32_t			LONG;
+typedef uint32_t	ULONG;
+typedef uint32_t	DWORD;
 
 /* Boolean type */
 typedef enum { FALSE = 0, TRUE } BOOL;

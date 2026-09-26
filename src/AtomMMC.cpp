@@ -49,7 +49,7 @@ void InitMMC(void)
 
     // Load EEPROM
     //  snprintf(EEPath, PATHSIZE, "%s/%s", BaseMMCPath, EEFILENAME);
-    LoadEE();
+    //LoadEE();
     configByte = 0xff;
     //eeprom[EE_SYSFLAGS];
 
@@ -61,7 +61,7 @@ void InitMMC(void)
 uint8_t ReadMMC(uint16_t addr)
 {
     uint8_t Current;
-    //Serial.println(__func__);
+ //   Serial.println(__func__);
     //Serial.printf("Adress: %04X, data: ", addr);
     //Serial.printf("PC=%04X ReadMMC(%04X)=", pc, addr);
     WASWRITE = 0;
@@ -73,7 +73,7 @@ uint8_t ReadMMC(uint16_t addr)
 
 void WriteMMC(uint16_t addr, uint8_t data)
 {
-    //Serial.println(__func__);
+   // Serial.println(__func__);
     //Serial.printf("Adress: %04X, data: %02x\r\n", addr, data);
     //Serial.printf("PC=%04X WriteMMC(%04X,%02X)\n", pc, addr, data);
     WASWRITE = 1;
@@ -117,5 +117,5 @@ void SaveEE(void)
 void FinalizeMMC(void)
 {
     Serial.println(__func__);
-    SaveEE();
+    //SaveEE();
 }

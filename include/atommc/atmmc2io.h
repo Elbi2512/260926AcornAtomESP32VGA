@@ -1,3 +1,4 @@
+#include "ff.h"
 #ifndef _IO
 
 #if (PLATFORM==PLATFORM_PIC)

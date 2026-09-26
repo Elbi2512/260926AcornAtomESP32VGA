@@ -6,6 +6,8 @@
 #include "atommc/atmmc2def.h"
 #include "atommc/atmmc2io.h"
 #include <string.h>
+#include "ff.h"
+
 void SaveEE(void);
 extern char configByte;
 extern char blVersion;

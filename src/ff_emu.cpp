@@ -1,16 +1,16 @@
 /*
-	ff_emu.c
-	
-	Functions to emulate the FatFilesystem routines as used by AtoMMC.
-	
-	Note this is by no means a complete emulation of FATFS, but 
-	replicates / emulates enough of the functionality to allow emulation
-	of the AtoMMC interface firmware.
-	
-	I had to split the emulation over two files because of a clash of 
-	structure names used by fatfs calls and the underlying os.
-	
-	2012-06-12, Phill Harvey-Smith.
+    ff_emu.c
+
+    Functions to emulate the FatFilesystem routines as used by AtoMMC.
+
+    Note this is by no means a complete emulation of FATFS, but
+    replicates / emulates enough of the functionality to allow emulation
+    of the AtoMMC interface firmware.
+
+    I had to split the emulation over two files because of a clash of
+    structure names used by fatfs calls and the underlying os.
+
+    2012-06-12, Phill Harvey-Smith.
 */
 
 #include <stdio.h>
@@ -21,8 +21,9 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h> // Required for OSX and lseek()
+#include "SD.h"
 #include <FS.h>
-#include <SPIFFS.h>
+//#include <SPIFFS.h>
 
 #include "atommc/integer.h"
 #include "ff.h"
@@ -50,14 +51,14 @@
 extern PS2Keyboard kbd;
 DIR dj;
 EMUDIR emu;
-File root;
+// File root;
 char MMCPath[PATHSIZE + 1];
 char BaseMMCPath[PATHSIZE + 1];
 File *openfil;
 char openname[SHORT_NAME_LEN + 1];
 extern char globalData[256];
 void HexDumpHead(char *, int);
-// FRESULT f_open(File *, char *, BYTE);
+FRESULT f_opena(File *, char *, BYTE);
 #ifdef DEBUGFF
 void HexDump(const void *Buff,
              int Length);
@@ -66,21 +67,32 @@ void HexDumpHead(const void *Buff,
                  int Length);
 
 #endif
+//extern BYTE existFile(fs::FS &fs, const char *path);
+extern BYTE readFile(fs::FS &fs, const char *path);
+//extern void sdInitL();
+//extern void sdClose();
 
-static BYTE file_exists(char name[])
+/* static BYTE file_exists(char name[])
 {
-    kbd.disIRQ();
-    if (SPIFFS.exists(name) == true)
+    BYTE status;
+    Serial.printf("%s: File exist found %d\n", __func__, __LINE__);
+    // kbd.disIRQ();
+    sdInitL();
+    if (existFile(SD, name))
+    //(SD.exists(name) == true)
     {
-        //Serial.printf("%s: File found %d\n", __func__, __LINE__);
-        return FR_OK;
+        Serial.printf("%s: File found %d\n", __func__, __LINE__);
+        status = FR_OK;
     }
     else
     {
-        //Serial.printf("%s: File not found %d\n", __func__, __LINE__);
-        return FR_NO_PATH;
+        Serial.printf("%s: File not found %d\n", __func__, __LINE__);
+        status = FR_NO_PATH;
     }
+    sdClose();
+    return status;
 }
+*/
 
 static void update_FIL(File *file,
                        int fp,
@@ -106,7 +118,7 @@ static void update_FIL(File *file,
 
 static FRESULT get_result(int err_no)
 {
-    //debuglog("get_result errno=%d [%04X]\n",err_no,err_no);
+    // debuglog("get_result errno=%d [%04X]\n",err_no,err_no);
     switch (err_no)
     {
     case ENOENT:
@@ -131,7 +143,7 @@ FRESULT f_chdrive(
 }
 /*
 FRESULT f_mount(
-    BYTE vol, // Logical drive number to be mounted/unmounted 
+    BYTE vol, // Logical drive number to be mounted/unmounted
     FATFS *fs // Pointer to new file system object (NULL for unmount)
 )
 {
@@ -169,131 +181,7 @@ FRESULT f_chdir(
 
     return result;
 }
-
-FRESULT f_open(File *fp, char *path, char mode)
-{
-    //Serial.println(__func__);
-    kbd.disIRQ();
-    BYTE exists;
-    char open_mode = 0;
-    int newfile;
-    FRESULT status;
-    char tekst[20];
-
-    // Get real path of file and check to see if it exists
-    //  //Serial.printf("Fopenpath: %s/%s\n", (const char *)globalData, path);
-    mode &= (FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW);
-    //Serial.printf("Mode: %x\n", mode);
-
-    sprintf(tekst, "/%s", (const char *)globalData);
-    //Serial.println(tekst);
-    //Serial.printf("mode: %x\r\n", mode);
-    //Serial.println(__LINE__);
-    //res = SPIFFS.open("/test.txt", FILE_WRITE);
-    //Serial.println(__LINE__);
-    exists = file_exists(tekst);
-    //Serial.println(__LINE__);
-    if (FR_OK == exists)
-    {
-        if (mode & FA_CREATE_NEW)
-        {
-            //Serial.println(__LINE__);
-            kbd.enaIRQ();
-            return FR_EXIST;
-        }
-
-        if (mode & FA_CREATE_ALWAYS)
-        {
-            //Serial.println(__LINE__);
-            open_mode = O_CREAT;
-        }
-        if (mode & (FA_READ | FA_WRITE))
-        {
-            //Serial.println(__LINE__);
-            if (mode & FA_WRITE)
-                open_mode |= O_RDWR;
-            else
-                open_mode |= O_RDONLY;
-            //Serial.println(__LINE__);
-        }
-        //Serial.println(__LINE__);
-    }
-    else
-    {
-        //Serial.println(__LINE__);
-        if (mode & (FA_OPEN_ALWAYS | FA_CREATE_NEW | FA_CREATE_ALWAYS))
-        {
-            //Serial.println("Poging om file aan te maken");
-            //Serial.println(mode, HEX);
-            open_mode = O_CREAT | O_RDWR;
-        }
-        else
-        {
-            //Serial.println("File not found");
-            kbd.enaIRQ();
-            return FR_NO_FILE;
-        }
-    }
-    //Serial.printf("%s: %d\n", __func__, __LINE__);
-    //Serial.printf("File openmode: %x\n", open_mode);
-
-    if (open_mode == 0)
-    {
-        //Serial.printf("Open ffile: %s, met modus: %s\n", tekst, "r");
-        *fp = SPIFFS.open(tekst, "r");
-    }
-    if (open_mode == 2)
-    {
-        //Serial.printf("Open ffile: %s, met modus: %s\n", tekst, "w");
-        *fp = SPIFFS.open(tekst, "w");
-    }
-    /*
-    exists = file_exists(path);
-
-    //debuglog("f_open(%s,%02X):exists=%d\n",open_path,mode,exists);
-
-    mode &= (FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW);
-
-    if (FR_OK == exists)
-    {
-        if (mode & FA_CREATE_NEW)
-            return FR_EXIST;
-
-        if (mode & FA_CREATE_ALWAYS)
-            open_mode = O_CREAT;
-
-        if (mode & (FA_READ | FA_WRITE))
-        {
-            if (mode & FA_WRITE)
-                open_mode |= O_RDWR;
-            else
-                open_mode |= O_RDONLY;
-        }
-    }
-    else
-    {
-        if (mode & (FA_OPEN_ALWAYS | FA_CREATE_NEW | FA_CREATE_ALWAYS))
-            open_mode = O_CREAT | O_RDWR;
-        else
-            return FR_NO_FILE;
-    }
-
-    newfile = open(open_path, open_mode | O_BINARY, S_IRWXU);
-    update_FIL(fp, newfile, 1);
-
-    //debuglog("Openmode:%04X\n",open_mode);
-
-    if (newfile > 0)
-    {
-        openfil = fp;
-        status = FR_OK;
-    }
-    else
-        status = FR_INVALID_NAME;
-        */
-    //kbd.enaIRQ();
-    return status;
-}
+// lb: hier kwam hij vandaan..
 
 FRESULT f_read(
     File *fp,   /* Pointer to the file object */
@@ -302,8 +190,8 @@ FRESULT f_read(
     size_t *br  /* Pointer to number of bytes read */
 )
 {
-    //Serial.println(__func__);
-    kbd.disIRQ();
+     Serial.println(__func__);
+    // kbd.disIRQ();
     FRESULT status = (FRESULT)0;
     DWORD ptrpos;
     int bytesread;
@@ -311,11 +199,11 @@ FRESULT f_read(
 
     ptrpos = fp->position();
 
-    bytesread = fp->readBytes(buff, btr);
-    *br = bytesread;
+      bytesread = fp->readBytes(buff, btr);
+      *br = bytesread;
 
-    //Serial.printf("f_read(%d) offset=%d[%04X],result=%d\n", btr, ptrpos, ptrpos, *br);
-    HexDumpHead(buff, btr);
+   // Serial.printf("f_read(%d) offset=%d[%04X],result=%d\n", btr, ptrpos, ptrpos, *br);
+   // HexDumpHead(buff, btr);
 
     update_FIL(fp, 0, 0);
 
@@ -325,7 +213,7 @@ FRESULT f_read(
         status = (FRESULT)error;
     }
     status = FR_OK;
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     return status;
 }
 
@@ -341,8 +229,8 @@ FRESULT f_write(
     int error;
     int len = btw;
     FRESULT status;
-    //Serial.println(__func__);
-    kbd.disIRQ();
+    // Serial.println(__func__);
+    // kbd.disIRQ();
 
     ptrpos = fp->position();
 
@@ -351,19 +239,19 @@ FRESULT f_write(
     written = fp->write(buff, btw);
     *bw = written;
 
-    //debuglog("f_write(%d) offset=%d[%04X],result=%d\n",btw,ptrpos,ptrpos,written);
+    // debuglog("f_write(%d) offset=%d[%04X],result=%d\n",btw,ptrpos,ptrpos,written);
     //	HexDumpHead(buff,btw);
 
     if (written < 0)
     {
         error = errno;
-        //debuglog("errno: %s [%d]\n",strerror(error),error);
+        // debuglog("errno: %s [%d]\n",strerror(error),error);
         status = (FRESULT)error; /* Return correct error for RAF */
     }
 
     update_FIL(fp, 0, 0);
     status = FR_OK;
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     return status;
 }
 
@@ -373,18 +261,18 @@ FRESULT f_close(
     File *fp /* Pointer to the file object to be closed */
 )
 {
-    //Serial.println(__func__);
-    kbd.disIRQ();
+    // Serial.println(__func__);
+    // kbd.disIRQ();
     // int result = 0;
 
     if (0 != (int)fp)
         fp->close();
 
-    //debuglog("f_close():result=%d\n",result);
+    // debuglog("f_close():result=%d\n",result);
 
     fp = NULL;
     openfil = NULL;
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     return FR_OK;
 }
 
@@ -403,9 +291,9 @@ FRESULT f_unlink(char *path) /* Pointer to the file or directory path */
     // Get real path of file and check to see if it exists
     snprintf(del_path, PATHSIZE, "%s/%s", MMCPath, path);
 
-    //debuglog("f_unlink(%s)\n",del_path);
-    //Serial.println(__func__);
-    kbd.disIRQ();
+    // debuglog("f_unlink(%s)\n",del_path);
+    // Serial.println(__func__);
+    // kbd.disIRQ();
 
     result = unlink(del_path);
 
@@ -416,35 +304,37 @@ FRESULT f_unlink(char *path) /* Pointer to the file or directory path */
         status = get_result(errno);
 
     /* END SP4*/
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     return status;
 }
 
 FRESULT f_opendir(
     DIR *dj,   /* Pointer to directory object to create */
     char *path /* Pointer to the directory path */
+
 )
 {
+    File file;
     FRESULT status;
-    //Serial.println(__func__);
-    kbd.disIRQ();
+    // Serial.println(__func__);
+    // kbd.disIRQ();
 
-    root = SPIFFS.open("/");
-    //Serial.println("fs opened");
-    File file = root.openNextFile();
-    //Serial.println("fs openednextfile");
+    // root = SD.open("/");
+    //  Serial.println("fs opened");
+    // File file = root.openNextFile();
+    // Serial.println("fs openednextfile");
 
     if (file)
     {
-        //Serial.print("FILE: ");
-        //Serial.println(file.name());
+        // Serial.print("FILE: ");
+        // Serial.println(file.name());
         status = FR_OK;
     }
     else
     {
         status = FR_NO_PATH;
     }
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     return status;
 }
 
@@ -455,10 +345,10 @@ FRESULT f_readdir(
 {
     File file;
     FRESULT status;
-    //Serial.println(__func__);
+    // Serial.println(__func__);
     //kbd.disIRQ();
-    //Serial.print("Finename: ");
-    //Serial.println(fno->fname);
+    // Serial.print("Finename: ");
+    // Serial.println(fno->fname);
     /*  // If a file found copy it's details, else set size to 0 and filename to ''
     if (findnext(&emu))
     {
@@ -490,7 +380,7 @@ FRESULT f_readdir(
         fno->fsize = 0;
         fno->fname[0] = 0;
     }
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     */
     return FR_OK;
 }
@@ -500,12 +390,12 @@ FRESULT f_lseek(
     DWORD ofs /* File pointer from top of file */
 )
 {
-    //Serial.println(__func__);
-    kbd.disIRQ();
+    // Serial.println(__func__);
+    // kbd.disIRQ();
 
     fp->seek(ofs);
     update_FIL(fp, 0, 0);
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
     return FR_OK;
 }
 
@@ -520,7 +410,7 @@ void get_fileinfo_special(FILINFO *fno)
 {
     //   get_fileinfo(&dj, fno);
 
-    //Serial.printf("get_fileinfo_special()\n");
+    // Serial.printf("get_fileinfo_special()\n");
     /*
     if (NULL != openfil)
     {
@@ -576,7 +466,7 @@ void HexDump(char *Buff,
     }
     Serial.printf("\n\n");
 }
-//#endif
+// #endif
 
 void HexDumpHead(char *Buff,
                  int Length)

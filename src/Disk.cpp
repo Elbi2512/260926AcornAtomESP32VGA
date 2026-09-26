@@ -1,21 +1,54 @@
 #include <Arduino.h>
+#include "atommc/integer.h"
 #include "def\hardware.h"
-/*
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com/esp32-microsd-card-arduino/
-  
-  This sketch was mofidied from: Examples > SD(esp32) > SD_Test
-*/
-
 #include <FS.h>
 #include <SPIFFS.h>
 #include "PS2keyboard.h"
-//#include "SD.h"
-//#include "SPI.h"
+// #include "SD.h"
+// #include "SPI.h"
+
+#include "atommc/ff_emudir.h"
+#include "ff.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h> // Required for OSX and lseek()
+#include "SD.h"
+#include <FS.h>
+// #include <SPIFFS.h>
+
+#include "atommc/integer.h"
+#include "ff.h"
+#include <dirent.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <stdio.h>
+#include "atommc/ff_emudir.h"
+#include "atom.h"
+#include "PS2Keyboard.h"
+
+// This sequence of defines is needed as MinGW specifically needs binary
+// files to be opened with O_BINARY, which does not exist on other platforms.
+#ifndef O_BINARY
+#ifdef _O_BINARY
+#define O_BINARY _O_BINARY
+#else
+#define O_BINARY 0
+#endif
+#endif
+
+extern char globalData[256];
 extern uint8_t irq_num;
 
 void errorHalt(String errormsg);
-//void IRAM_ATTR kb_interruptHandler(void);
+// void IRAM_ATTR kb_interruptHandler(void);
+File existFile(fs::FS &fs, const char *path);
 
 extern PS2Keyboard kbd;
 
@@ -24,127 +57,112 @@ extern PS2Keyboard kbd;
 #define MOSI 12
 #define CS 13
 
-/*String getFileEntriesFromDir(String path)
+BYTE readFile(fs::FS &fs, const char *path);
+// fs::FS RootSD;
+
+static BYTE file_exists(char name[])
 {
-    KB_INT_STOP;
-    Serial.printf("Getting entries from: '%s'\n", path.c_str());
-    String filelist;
-    File root = SPIFFS.open(path.c_str());
-    if (!root || !root.isDirectory())
+    // kbd.disIRQ();
+    if (SPIFFS.exists(name) == true)
     {
-        errorHalt((String)ERR_DIR_OPEN + "\n" + root);
+        // Serial.printf("%s: File found %d\n", __func__, __LINE__);
+        return FR_OK;
     }
-    File file = root.openNextFile();
-    if (!file)
-        Serial.println("No entries found!");
-    while (file)
+    else
     {
-        Serial.printf("Found %s: %s...%ub...", (file.isDirectory() ? "DIR" : "FILE"), file.name(), file.size());
-        String filename = file.name();
-        byte start = filename.indexOf("/", path.length()) + 1;
-        byte end = filename.indexOf("/", start);
-        filename = filename.substring(start, end);
-        Serial.printf("%s...", filename.c_str());
-        if (filename.startsWith("."))
+        // Serial.printf("%s: File not found %d\n", __func__, __LINE__);
+        return FR_NO_PATH;
+    }
+}
+
+FRESULT f_opena(File *fp, char *path, BYTE mode)
+{
+    Serial.println(__func__);
+    // kbd.disIRQ();
+    BYTE exists;
+    char open_mode = 0;
+    int newfile;
+    FRESULT status = (FRESULT) 0;
+    char tekst[20];
+
+    // Get real path of file and check to see if it exists
+    //  //Serial.printf("Fopenpath: %s/%s\n", (const char *)globalData, path);
+    mode &= (FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW);
+    // Serial.printf("Mode: %x\n", mode);
+
+    sprintf(tekst, "/%s", (const char *)globalData);
+     Serial.println(tekst);
+     Serial.printf("mode: %x\r\n", mode);
+    // Serial.println(__LINE__);
+    // res = SPIFFS.open("/test.txt", FILE_WRITE);
+    // Serial.println(__LINE__);
+    exists = file_exists(tekst);
+    Serial.println(exists);
+    // Serial.println(__LINE__);
+    if (FR_OK == exists)
+    {
+
+        if (mode & FA_CREATE_NEW)
         {
-            Serial.println("HIDDEN");
+            // Serial.println(__LINE__);
+            // kbd.enaIRQ();
+            return FR_EXIST;
         }
-        else if (cfg_arch == "48K" & file.size() > SIZE48K)
+
+        if (mode & FA_CREATE_ALWAYS)
         {
-            Serial.println("128K SKIP");
+            // Serial.println(__LINE__);
+            open_mode = O_CREAT;
+        }
+        if (mode & (FA_READ | FA_WRITE))
+        {
+            // Serial.println(__LINE__);
+            if (mode & FA_WRITE)
+                open_mode |= O_RDWR;
+            else
+                open_mode |= O_RDONLY;
+            // Serial.println(__LINE__);
+        }
+        // Serial.println(__LINE__);
+    }
+    else
+    {
+        // Serial.println(__LINE__);
+        if (mode & (FA_OPEN_ALWAYS | FA_CREATE_NEW | FA_CREATE_ALWAYS))
+        {
+            // Serial.println("Poging om file aan te maken");
+            // Serial.println(mode, HEX);
+            open_mode = O_CREAT | O_RDWR;
         }
         else
         {
-            if (filelist.indexOf(filename) < 0)
-            {
-                Serial.println("ADDING");
-                filelist += filename + "\n";
-            }
-            else
-            {
-                Serial.println("EXISTS");
-            }
-        }
-        file = root.openNextFile();
-    }
-    KB_INT_START;
-    return filelist;
-} 
-
-unsigned short countFileEntriesFromDir(String path)
-{
-    String entries = getFileEntriesFromDir(path);
-    unsigned short count = 0;
-    for (unsigned short i = 0; i < entries.length(); i++)
-    {
-        if (entries.charAt(i) == ASCII_NL)
-        {
-            count++;
+            // Serial.println("File not found");
+            // kbd.enaIRQ();
+            return FR_NO_FILE;
         }
     }
-    return count;
+    Serial.printf("%s: %d\n", __func__, __LINE__);
+    // Serial.printf("File openmode: %x\n", open_mode);
+
+    if (open_mode == 0)
+    {
+         Serial.printf("Open ffile: %s, met modus: %s\n", tekst, "r");
+        *fp = SPIFFS.open(tekst, "r");
+    }
+    if (open_mode == 2)
+    {
+        // Serial.printf("Open ffile: %s, met modus: %s\n", tekst, "w");
+        *fp = SPIFFS.open(tekst, "w");
+    }
+    // kbd.enaIRQ();
+    Serial.printf("Status: %d, %s: %d\n", status, __func__, __LINE__);
+ 
+    return status;
 }
 
-String getAllFilesFrom(const String path)
+void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 {
-    KB_INT_STOP;
-    File root = SPIFFS.open("/");
-    File file = root.openNextFile();
-    String listing;
-
-    while (file)
-    {
-        file = root.openNextFile();
-        String filename = file.name();
-        if (filename.startsWith(path) && !filename.startsWith(path + "/."))
-        {
-            listing.concat(filename.substring(path.length() + 1));
-            listing.concat("\n");
-        }
-    }
-    vTaskDelay(2);
-    KB_INT_START;
-    return listing;
-} */
-
-void listAllFiles()
-{
-    kbd.disIRQ();
-    File root = SPIFFS.open("/");
-    Serial.println("fs opened");
-    File file = root.openNextFile();
-    Serial.println("fs openednextfile");
-
-    while (file)
-    {
-        Serial.print("FILE: ");
-        Serial.println(file.name());
-        file = root.openNextFile();
-    }
-    vTaskDelay(2);
-    kbd.enaIRQ();
-}
-/*
-File open_read_file(String filename)
-{
-    File f;
-    filename.replace("\n", " ");
-    filename.trim();
-    if (cfg_slog_on)
-        Serial.printf("%s '%s'\n", MSG_LOADING, filename.c_str());
-    if (!SPIFFS.exists(filename.c_str()))
-    {
-        KB_INT_START;
-        errorHalt((String)ERR_READ_FILE + "\n" + filename);
-    }
-    f = SPIFFS.open(filename.c_str(), FILE_READ);
-    vTaskDelay(2);
-
-    return f;
-}
-*/
-/* void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
-{
+    Serial.println(__func__);
     Serial.printf("Listing directory: %s\n", dirname);
 
     File root = fs.open(dirname);
@@ -181,12 +199,92 @@ File open_read_file(String filename)
         file = root.openNextFile();
     }
 }
-*/
+void vervolg();
+
+void sdInit()
+{
+    SPIClass spi = SPIClass(VSPI);
+    spi.begin(SCK, MISO, MOSI, CS);
+
+    if (!SD.begin(CS, spi, 80000000))
+    {
+        Serial.println("Card Mount Failed");
+        return;
+    }
+    uint8_t cardType = SD.cardType();
+
+    if (cardType == CARD_NONE)
+    {
+        Serial.println("No SD card attached");
+        return;
+    }
+
+    Serial.print("SD Card Type: ");
+    if (cardType == CARD_MMC)
+    {
+        Serial.println("MMC");
+    }
+    else if (cardType == CARD_SD)
+    {
+        Serial.println("SDSC");
+    }
+    else if (cardType == CARD_SDHC)
+    {
+        Serial.println("SDHC");
+    }
+    else
+    {
+        Serial.println("UNKNOWN");
+    }
+
+    uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+    Serial.printf("SD Card Size: %lluMB\n", cardSize);
+    vervolg();
+    //   RootSD = SD;
+}
+void vervolg()
+{
+    // listDir(SD, "/", 0);
+    File b = existFile(SD, "/MENU");
+    Serial.printf("Besand bestaat: %d\r\n", b);
+    b = existFile(SD, "/LB");
+    Serial.printf("Besand bestaat: %d\r\n", b);
+    Serial.printf("Total space: %lluMB\n", SD.totalBytes() / (1024 * 1024));
+    /*
+    listDir(SD, "/", 0);
+    Serial.printf("Used space: %lluMB\n", SD.usedBytes() / (1024 * 1024));
+    b = existFile(SD, "/LB");
+    Serial.printf("Besand bestaat: %d\r\n", b);
+    Serial.printf("%X\r\n", SD);
+    // SD.end();
+    */
+    // kbd.enaIRQ();
+}
+
+void listAllFiles()
+{
+    /*
+    // kbd.disIRQ();
+    File root = SD.open("/");
+    Serial.println("fs opened");
+    File file = root.openNextFile();
+    Serial.println("fs openednextfile");
+
+    while (file)
+    {
+        Serial.print("FILE: ");
+        Serial.println(file.name());
+        file = root.openNextFile();
+    }
+    vTaskDelay(2);
+    // kbd.enaIRQ();
+    */
+}
 void createDir(fs::FS &fs, const char *path)
 {
     Serial.println(__func__);
     Serial.printf("Creating Dir: %s\n", path);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     if (fs.mkdir(path))
     {
         Serial.println("Dir created");
@@ -195,14 +293,14 @@ void createDir(fs::FS &fs, const char *path)
     {
         Serial.println("mkdir failed");
     }
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
 }
 
 void removeDir(fs::FS &fs, const char *path)
 {
     Serial.println(__func__);
     Serial.printf("Removing Dir: %s\n", path);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     if (fs.rmdir(path))
     {
         Serial.println("Dir removed");
@@ -211,19 +309,19 @@ void removeDir(fs::FS &fs, const char *path)
     {
         Serial.println("rmdir failed");
     }
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
 }
 
-void readFile(fs::FS &fs, const char *path)
+BYTE readFile(fs::FS &fs, const char *path)
 {
     Serial.println(__func__);
     Serial.printf("Reading file: %s\n", path);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     File file = fs.open(path);
     if (!file)
     {
         Serial.println("Failed to open file for reading");
-        return;
+        return 0;
     }
 
     Serial.print("Read from file: ");
@@ -232,7 +330,55 @@ void readFile(fs::FS &fs, const char *path)
         Serial.write(file.read());
     }
     file.close();
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
+    Serial.println(__LINE__);
+    return true;
+}
+
+// void IRAM_ATTR mount_spiffs()
+File existFile(fs::FS &fs, const char *path)
+{
+    Serial.println(__func__);
+    Serial.printf("Reading file: %s\n", path);
+    Serial.println(__LINE__);
+    // kbd.disIRQ();
+    File f = (File)0;
+    //   filename.replace("\n", " ");
+    // filename.trim();
+    if (!SPIFFS.exists(path))
+    {
+        return (File)0;
+    }
+    f = SPIFFS.open(path);
+    vTaskDelay(2);
+
+    return f;
+    /*
+        File file = fs.open(path);
+        Serial.println(__LINE__);
+        if (!file)
+        {
+            Serial.println("Failed to open file for reading");
+            return false;
+        }
+
+        Serial.print("Read from file: ");
+        while (file.available())
+        {
+            static int i = 0;
+            Serial.printf(" %02X", file.read());
+            if (i++ > 16)
+            {
+                i = 0;
+                Serial.println();
+            }
+        }
+        Serial.println();
+        file.close();
+        // kbd.enaIRQ();
+        vTaskDelay(2);
+        return true;
+        */
 }
 
 void writeFile(fs::FS &fs, const char *path, const char *message)
@@ -240,7 +386,7 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
     Serial.println(__func__);
 
     Serial.printf("Writing file: %s\n", path);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     File file = fs.open(path, FILE_WRITE);
     if (!file)
     {
@@ -256,14 +402,14 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
         Serial.println("Write failed");
     }
     file.close();
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
 }
 
 void appendFile(fs::FS &fs, const char *path, const char *message)
 {
     Serial.println(__func__);
     Serial.printf("Appending to file: %s\n", path);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     File file = fs.open(path, FILE_APPEND);
     if (!file)
     {
@@ -279,14 +425,14 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
         Serial.println("Append failed");
     }
     file.close();
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
 }
 
 void renameFile(fs::FS &fs, const char *path1, const char *path2)
 {
     Serial.println(__func__);
     Serial.printf("Renaming file %s to %s\n", path1, path2);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     if (fs.rename(path1, path2))
     {
         Serial.println("File renamed");
@@ -295,14 +441,14 @@ void renameFile(fs::FS &fs, const char *path1, const char *path2)
     {
         Serial.println("Rename failed");
     }
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
 }
 
 void deleteFile(fs::FS &fs, const char *path)
 {
     Serial.println(__func__);
     Serial.printf("Deleting file: %s\n", path);
-    kbd.disIRQ();
+    // kbd.disIRQ();
     if (fs.remove(path))
     {
         Serial.println("File deleted");
@@ -311,247 +457,5 @@ void deleteFile(fs::FS &fs, const char *path)
     {
         Serial.println("Delete failed");
     }
-    kbd.enaIRQ();
+    // kbd.enaIRQ();
 }
-
-void testFileIO(fs::FS &fs, const char *path)
-{
-    Serial.println(__func__);
-    kbd.disIRQ();
-    File file = fs.open(path);
-    static uint8_t buf[512];
-    size_t len = 0;
-    uint32_t start = millis();
-    uint32_t end = start;
-    if (file)
-    {
-        len = file.size();
-        size_t flen = len;
-        start = millis();
-        while (len)
-        {
-            size_t toRead = len;
-            if (toRead > 512)
-            {
-                toRead = 512;
-            }
-            file.read(buf, toRead);
-            len -= toRead;
-        }
-        end = millis() - start;
-        Serial.printf("%u bytes read for %u ms\n", flen, end);
-        file.close();
-    }
-    else
-    {
-        Serial.println("Failed to open file for reading");
-    }
-
-    file = fs.open(path, FILE_WRITE);
-    if (!file)
-    {
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-
-    size_t i;
-    start = millis();
-    for (i = 0; i < 2048; i++)
-    {
-        file.write(buf, 512);
-    }
-    end = millis() - start;
-    Serial.printf("%u bytes written for %u ms\n", 2048 * 512, end);
-    file.close();
-    kbd.enaIRQ();
-}
-
-/*
-#include "Emulator/Keyboard/PS2Kbd.h"
-#include "Emulator/Memory.h"
-#include "def/ascii.h"
-#include "def/files.h"
-#include "def/msg.h"
-#include "def/types.h"
-#include <FS.h>
-#include <SPIFFS.h>
-
-void errorHalt(String errormsg);
-//void IRAM_ATTR kb_interruptHandler(void);
-
-// Globals
-
-String cfg_arch = "128K";
-String cfg_ram_file = NO_RAM_FILE;
-String cfg_rom_set = "SINCLAIR";
-String cfg_sna_file_list;
-boolean cfg_slog_on = true;
-boolean cfg_wconn = false;
-String cfg_wssid = "none";
-String cfg_wpass = "none";
-
-void IRAM_ATTR mount_spiffs()
-{
-    if (!SPIFFS.begin())
-        errorHalt(ERR_MOUNT_FAIL);
-
-    vTaskDelay(2);
-}
-
-String getAllFilesFrom(const String path)
-{
-    //KB_INT_STOP;
-    File root = SPIFFS.open("/");
-    File file = root.openNextFile();
-    String listing;
-
-    while (file)
-    {
-        file = root.openNextFile();
-        String filename = file.name();
-        if (filename.startsWith(path) && !filename.startsWith(path + "/."))
-        {
-            listing.concat(filename.substring(path.length() + 1));
-            listing.concat("\n");
-        }
-    }
-    vTaskDelay(2);
-    return listing;
-}
-
-void listAllFiles()
-{
-    File root = SPIFFS.open("/");
-    Serial.println("fs opened");
-    File file = root.openNextFile();
-    Serial.println("fs openednextfile");
-
-    while (file)
-    {
-        Serial.print("FILE: ");
-        Serial.println(file.name());
-        file = root.openNextFile();
-    }
-    vTaskDelay(2);
-}
-
-File open_read_file(String filename)
-{
-    File f;
-    filename.replace("\n", " ");
-    filename.trim();
-    if (cfg_slog_on)
-        Serial.printf("%s '%s'\n", MSG_LOADING, filename.c_str());
-    if (!SPIFFS.exists(filename.c_str()))
-    {
-        errorHalt((String)ERR_READ_FILE + "\n" + filename);
-    }
-    f = SPIFFS.open(filename.c_str(), FILE_READ);
-    vTaskDelay(2);
-
-    return f;
-}
-String getFileEntriesFromDir(String path)
-{
-    //KB_INT_STOP;
-    //KB_INT_STOP;
-    Serial.printf("Getting entries from: '%s'\n", path.c_str());
-    String filelist;
-    File root = SPIFFS.open(path.c_str());
-    if (!root || !root.isDirectory())
-    {
-        errorHalt((String)ERR_DIR_OPEN + "\n" + root);
-    }
-    File file = root.openNextFile();
-    if (!file)
-        Serial.println("No entries found!");
-    while (file)
-    {
-        Serial.printf("Found %s: %s...%ub...", (file.isDirectory() ? "DIR" : "FILE"), file.name(), file.size());
-        String filename = file.name();
-        byte start = filename.indexOf("/", path.length()) + 1;
-        byte end = filename.indexOf("/", start);
-        filename = filename.substring(start, end);
-        Serial.printf("%s...", filename.c_str());
-        if (filename.startsWith("."))
-        {
-            Serial.println("HIDDEN");
-        }
-        else if (cfg_arch == "48K" & file.size() > SIZE48K)
-        {
-            Serial.println("128K SKIP");
-        }
-        else
-        {
-            if (filelist.indexOf(filename) < 0)
-            {
-                Serial.println("ADDING");
-                filelist += filename + "\n";
-            }
-            else
-            {
-                Serial.println("EXISTS");
-            }
-        }
-        file = root.openNextFile();
-    }
-    //KB_INT_START;
-    return filelist;
-}
-
-unsigned short countFileEntriesFromDir(String path)
-{
-    String entries = getFileEntriesFromDir(path);
-    unsigned short count = 0;
-    for (unsigned short i = 0; i < entries.length(); i++)
-    {
-        if (entries.charAt(i) == ASCII_NL)
-        {
-            count++;
-        }
-    }
-    return count;
-}
-*/
-
-/*
-// hier oude zooi...
-
-void load_rom(String arch, uint8_t *adres)
-{
-    String path = "/roms";
-    //   +arch + ".rom";
-    Serial.printf("Loading ROMSET '%s'\n", path.c_str());
-    Serial.printf("Rombase: %X\r\n", adres);
-
-    byte n_roms = countFileEntriesFromDir(path);
-    if (n_roms < 1)
-    {
-        errorHalt("No ROMs found at " + path + "\nARCH: '" + arch);
-    }
-    Serial.printf("Processing %u ROMs\n", n_roms);
-    for (byte f = 0; f < 1; f++)
-    {
-        File rom_f = open_read_file(path + "/" + (String)arch + ".rom");
-        Serial.printf("Loading ROM '%s', size: %d\n", rom_f.name(), rom_f.size());
-        for (int i = 0; i < rom_f.size(); i++)
-        {
-            adres[i] = rom_f.read();
-            //Serial.printf("%X", adres[i]);
-        }
-        rom_f.close();
-    }
-}
-
-void errorHalt(String errormsg)
-{
-
-    Serial.print(errormsg);
-
-    while (1)
-    {
-        // do_keyboard();
-        delay(5);
-    }
-}
-*/

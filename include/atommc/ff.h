@@ -1,5 +1,5 @@
 #include "FS.h"
-#include "SPIFFS.h"
+//#include "SPIFFS.h"
 /* Character code support macros */
 
 #define IsUpper(c) (((c) >= 'A') && ((c) <= 'Z'))
@@ -8,8 +8,10 @@
 #define IsDBCS1(c) 0
 #define IsDBCS2(c) 0
 
-#define BYTE char
-#define WORD size_t
+typedef unsigned char BYTE;
+// typedef size_t WORD;
+
+//#define WORD size_t
 /* typedef struct _FILINFO_
 {
 	size_t fsize; // File size 

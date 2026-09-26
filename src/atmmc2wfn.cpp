@@ -199,8 +199,6 @@ void GetWildcard(void)
       Idx++;
    }
 
-   Serial.printf("GetWildcard() Idx=%d, WildPos=%d, LastSlash=%d\n", Idx, WildPos, LastSlash);
-
    if (WildPos > -1)
    {
       if (LastSlash > -1)
@@ -230,7 +228,6 @@ void GetWildcard(void)
 #endif
    }
 
-   Serial.printf("GetWildcard() globalData=%s WildPattern=%s\n", (const char *)globalData, WildPattern);
 }
 
 int fileOpen(BYTE mode)
@@ -239,7 +236,6 @@ int fileOpen(BYTE mode)
    File *file;
    char *buf;
    // char b1 = mode;
-   Serial.printf("fileOpen: mode: %x\n", mode);
 
    if (filenum == 0)
    {
@@ -395,8 +391,6 @@ int fileOpen(BYTE mode)
    // //Serial.println(STATUS_COMPLETE | res);
    // ret = STATUS_COMPLETE | fres;
    // return;
-   // STATUS_COMPLETE | res;
-   // kbd.enaIRQ();
    return STATUS_COMPLETE;
 }
 
@@ -414,18 +408,15 @@ void wfnDirectoryOpen(void)
 void listFilesInDir(File ddir)
 {
    FILINFO *filinfo = &filinfodata[0];
-   char len;
+   size_t len;
    int Match;
-   Serial.println(__func__);
 
    while (true)
    {
       File entry = ddir.openNextFile();
-
       if (!entry)
       {
          int res = 0x0;
-         Serial.println("Entry leeg");
          ddir.rewindDirectory();
          WriteDataPort(STATUS_COMPLETE | res);
          //      // kbd.enaIRQ();
@@ -436,21 +427,22 @@ void listFilesInDir(File ddir)
       // res = 0;
       //  f_readdir(&dir, filinfo);
 
-      Serial.print(entry.name());
       Match = wildcmp(WildPattern, entry.name());
-      Serial.printf("\nWildPattern=%s, entry.name()=%s, Match=%d\n", WildPattern, entry.name(), Match);
       if (Match)
       {
-         len = (char)strlen(entry.name());
+         len = strlen(entry.name());
+         if (len + 2 + sizeof(size_t) > 256)
+         {
+            entry.close();
+            continue;
+         }
 
          if (entry.isDirectory())
          {
-            Serial.println("/");
             // listFilesInDir(entry, numTabs + 1);
             n = 1;
             globalData[0] = '<';
          }
-         Serial.println(__LINE__);
          strcpy((char *)&globalData[n], (const char *)entry.name());
 
          // if (filinfo->fattrib & AM_DIR)
@@ -470,18 +462,15 @@ void listFilesInDir(File ddir)
          // Serial.println(__LINE__);
          WriteDataPort(STATUS_OK);
          entry.close();
-         Serial.println(__LINE__);
          // kbd.enaIRQ();
          return;
       }
    }
-   Serial.println(__LINE__);
    // kbd.enaIRQ();
 }
 
 void wfnDirectoryRead(void)
 {
-   Serial.println(__func__);
    // kbd.disIRQ();
    listFilesInDir(dir);
    vTaskDelay(2);
@@ -604,15 +593,25 @@ void wfnFileWrite(void)
    // Serial.println(__func__);
    // kbd.disIRQ();
    // FIL *fil = &fildata[filenum];
+   if (filenum < 0 || filenum >= 4 || !filedata[filenum])
+   {
+      WriteDataPort(STATUS_COMPLETE | ERROR_NO_DATA);
+      return;
+   }
+
    File *file = &filedata[filenum];
 
-   size_t written;
+   size_t written = 0;
    if (globalAmount == 0)
    {
       globalAmount = 256;
    }
-   WriteDataPort(STATUS_COMPLETE | 0);
-   f_write(file, (uint8_t *)globalData, globalAmount, &written);
+   if (globalAmount > 256)
+      globalAmount = 256;
+   FRESULT writeStatus = f_write(file, (uint8_t *)globalData, globalAmount, &written);
+   if (writeStatus == FR_OK && written != globalAmount)
+      writeStatus = FR_DISK_ERR;
+   WriteDataPort(STATUS_COMPLETE | writeStatus);
    // written = file->write(globalData, globalAmount);
    ////Serial.printf("Bytes geschreven: %d, file: ", written);
    ////Serial.print(*file);

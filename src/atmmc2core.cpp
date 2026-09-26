@@ -41,6 +41,9 @@ extern imgInfo driveInfo[];
 
 #if (PLATFORM == PLATFORM_ATMU)
 unsigned char CardType = 1; // Always return MMC
+#ifdef disk_initialize
+#undef disk_initialize
+#endif
 #define disk_initialize(drive) \
    {                           \
    }

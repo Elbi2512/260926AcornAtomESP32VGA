@@ -233,17 +233,9 @@ FRESULT f_write(
     // debuglog("f_write(%d) offset=%d[%04X],result=%d\n",btw,ptrpos,ptrpos,written);
     //	HexDumpHead(buff,btw);
 
-    if (written < 0)
-    {
-        error = errno;
-        // debuglog("errno: %s [%d]\n",strerror(error),error);
-        status = (FRESULT)error; /* Return correct error for RAF */
-    }
-
     update_FIL(fp, 0, 0);
-    status = FR_OK;
     // kbd.enaIRQ();
-    return status;
+    return written == (int)btw ? FR_OK : FR_DISK_ERR;
 }
 
 // SP9 END

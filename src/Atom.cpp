@@ -4,7 +4,6 @@
 #include <string.h>
 #include "roms.h"
 #include "atom.h"
-#include "Emulator/Keyboard/PS2kbd.h"
 #include "atommc.h"
 
 void set_rr_ptrs();
@@ -7856,7 +7855,7 @@ void loadroms()
   dosrom_ptr = &barawData[0xA000];  // dos rom
   akernel_ptr = &barawData[0xb000]; // ROM_OFS_AKERNEL];
 
-  memcpy(&ram[0x2900], Invader + 0X16, sizeof(Invader));
+  memcpy(&ram[0x2900], Invader + 0x16, sizeof(Invader) - 0x16);
 }
 
 void init8255()
@@ -9047,24 +9046,23 @@ void drawline(int line)
   if (line == 192)
   {
     static int countlb = 0;
-    static unsigned char shadow[32][16];
+    static unsigned char shadow[16][32];
     frmcount++;
     fskipcount++;
     // hier complete frame om te laten zien..
     if (gfxmode == 0)
     {
       int cnt = 0x8000;
-      unsigned ch = ram[cnt++];
-      for (int x = 0; x < 16; x++)
+      for (int row = 0; row < 16; row++)
       {
-        for (int y = 0; y < 32; y++)
+        for (int column = 0; column < 32; column++)
         {
-          if (shadow[y][x] != ch)
+          unsigned ch = ram[cnt++];
+          if (shadow[row][column] != ch)
           {
-            SetTxt((x * 12), (y * 8), ch);
-            shadow[y][x] = ch;
+            SetTxt(column * 8, row * 12, ch);
+            shadow[row][column] = ch;
           }
-          ch = ram[cnt++];
         }
       }
     }

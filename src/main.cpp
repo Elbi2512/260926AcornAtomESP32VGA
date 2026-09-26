@@ -59,6 +59,7 @@ uint8_t fontdata[] =
     0x00,
     0x00,
     0x00,
+    0x00,
     0x08,
     0x14,
     0x22,
@@ -1109,37 +1110,78 @@ void loop()
 
 void fastBox(int x, int y, int l, int b, int kleur)
 {
-  for (int i = 0; i < l; i++)
-    for (int j = 0; j < b; j++)
-      vga.dotFast(i + y, j + x, kleur);
+  if (l <= 0 || b <= 0)
+    return;
+
+  int left = x < 0 ? 0 : x;
+  int top = y < 0 ? 0 : y;
+  int right = x + b > vga.xres ? vga.xres : x + b;
+  int bottom = y + l > vga.yres ? vga.yres : y + l;
+  int clippedWidth = right - left;
+  if (clippedWidth <= 0 || bottom <= top)
+    return;
+
+  if ((left & 1) == 0 && (clippedWidth & 1) == 0)
+  {
+    uint8_t packedColor = (kleur & 0x0f) * 0x11;
+    int firstByte = left >> 1;
+    for (int rowIndex = top; rowIndex < bottom; rowIndex++)
+    {
+      uint8_t *row = vga.backBuffer[rowIndex];
+      for (int byteIndex = 0; byteIndex < clippedWidth / 2; byteIndex++)
+        row[firstByte + byteIndex] = packedColor;
+    }
+    return;
+  }
+
+  for (int row = top; row < bottom; row++)
+    for (int column = left; column < right; column++)
+      vga.dotFast(row, column, kleur);
 }
 
 void SetTxt(int x, int y, int ch)
 {
+  if (x < 0 || y < 0 || x + 8 > vga.xres || y + 12 > vga.yres)
+    return;
+
   if (ch & 0x40)
   {
-    int kleur = (ch & 0x80) ? RED : YELLOW;
-    if (ch & 0x01) fastBox(x + 8, y + 4, 4, 4, kleur); else fastBox(x + 8, y + 4, 4, 4, BLACK);
-    if (ch & 0x02) fastBox(x + 8, y + 0, 4, 4, kleur); else fastBox(x + 8, y + 0, 4, 4, BLACK);
-    if (ch & 0x04) fastBox(x + 4, y + 4, 4, 4, kleur); else fastBox(x + 4, y + 4, 4, 4, BLACK);
-    if (ch & 0x08) fastBox(x + 4, y + 0, 4, 4, kleur); else fastBox(x + 4, y + 0, 4, 4, BLACK);
-    if (ch & 0x10) fastBox(x + 0, y + 4, 4, 4, kleur); else fastBox(x + 0, y + 4, 4, 4, BLACK);
-    if (ch & 0x20) fastBox(x + 0, y + 0, 4, 4, kleur); else fastBox(x + 0, y + 0, 4, 4, BLACK);
+    int color = (ch & 0x80) ? RED : YELLOW;
+    for (int bit = 0; bit < 6; bit++)
+    {
+      int blockX = (bit & 1) ? 0 : 4;
+      int blockY = 8 - (bit / 2) * 4;
+      fastBox(x + blockX, y + blockY, 4, 4, (ch & (1 << bit)) ? color : BLACK);
+    }
   }
   else
   {
     const unsigned char *pix = &fontdata[(ch & 0x3f) * 12];
-    for (int px = 0; px < 12; px++)
+    uint8_t foreground = (ch & 0x80) ? BLACK : GREEN;
+    uint8_t background = (ch & 0x80) ? GREEN : BLACK;
+    if ((x & 1) == 0)
     {
-      for (int py = 0; py < 8; py++)
+      for (int py = 0; py < 12; py++)
       {
-        bool pixel = (*(pix) & (1 << (7 - py))) != 0;
-        if (ch & 0x80)
-          vga.dotFast(py + y, px + x, pixel ? BLACK : GREEN);
-        else
-          vga.dotFast(py + y, px + x, pixel ? GREEN : BLACK);
+        uint8_t *row = vga.backBuffer[y + py];
+        for (int px = 0; px < 8; px += 2)
+        {
+          uint8_t leftColor = (pix[py] & (0x80 >> px)) ? foreground : background;
+          uint8_t rightColor = (pix[py] & (0x80 >> (px + 1))) ? foreground : background;
+          row[(x + px) >> 1] = leftColor | (rightColor << 4);
+        }
       }
-      pix++;
+    }
+    else
+    {
+      for (int py = 0; py < 12; py++)
+      {
+        for (int px = 0; px < 8; px++)
+        {
+          bool pixel = (pix[py] & (0x80 >> px)) != 0;
+          vga.dotFast(x + px, y + py, pixel ? foreground : background);
+        }
+      }
     }
   }
 }

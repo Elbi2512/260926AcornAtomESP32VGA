@@ -6,6 +6,9 @@
 
 #ifndef __FF_EMUDIR__
 
+#ifdef PATHSIZE
+#undef PATHSIZE
+#endif
 #define PATHSIZE	255
 #define FNAMELEN	12
 

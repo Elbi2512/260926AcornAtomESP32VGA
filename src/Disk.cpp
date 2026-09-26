@@ -100,12 +100,11 @@ FRESULT f_opena(File *fp, char *path, BYTE mode)
     if (!exists && !(mode & (FA_OPEN_ALWAYS | FA_CREATE_NEW | FA_CREATE_ALWAYS)))
         return FR_NO_FILE;
 
-    if (mode & FA_CREATE_ALWAYS)
-        SD.remove(fullpath);
-    if (mode & (FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW))
-        *fp = SD.open(fullpath, FILE_WRITE);
-    else
-        *fp = SD.open(fullpath, FILE_READ);
+    const bool write = (mode & FA_WRITE) != 0;
+    const bool read = (mode & FA_READ) != 0;
+    const bool truncate = (mode & FA_CREATE_ALWAYS) != 0;
+    const char *open_mode = !write ? "r" : (truncate || !exists ? (read ? "w+" : "w") : "r+");
+    *fp = SD.open(fullpath, open_mode);
 
     return *fp ? FR_OK : FR_NO_FILE;
 }

@@ -1088,7 +1088,7 @@ int dopaddrnmos[256] =
         ABSX,
 };
 
-void debugout(char *w)
+void debugout(const char *w)
 {
     Serial.print(w);
 }

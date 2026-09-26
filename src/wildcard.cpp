@@ -8,7 +8,6 @@ int wildcmp(const char *wild, const char *string)
 
 	const char *cp = NULL;
 	const char *mp = NULL;
-	Serial.println(__func__);
 	while ((*string) && (*wild != '*'))
 	{
 		if ((*wild != *string) && (*wild != '?'))

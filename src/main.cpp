@@ -1014,6 +1014,99 @@ void do_keyboard()
   vTaskDelay(0);
 }
 
+#endif
+
+void do_keyboard()
+{
+  static bool keyReleased = false;
+  static bool rawKeyDown[128] = {};
+  uint8_t scancode = kbd.read();
+  if (scancode == 0xe0)
+    return;
+  if (scancode == 0xf0)
+  {
+    keyReleased = true;
+    return;
+  }
+
+  bool keyDown = !keyReleased;
+  keyReleased = false;
+  if (scancode >= 128)
+    return;
+
+  bool wasDown = rawKeyDown[scancode];
+  rawKeyDown[scancode] = keyDown;
+  bool physicalShift = rawKeyDown[0x12] || rawKeyDown[0x59];
+  bool syntheticShift = false;
+  bool suppressShift = false;
+  if (scancode == 0x07 && keyDown && !wasDown)
+    atom_reset(0);
+
+  memset(key, 0, sizeof(key[0]) * 128);
+  for (int sourceCode = 0; sourceCode < 128; sourceCode++)
+  {
+    if (!rawKeyDown[sourceCode])
+      continue;
+    int matrixCode = sourceCode;
+    if (sourceCode == KEY_TAB)
+      matrixCode = ATOM_MATRIX_COPY_ID;
+    else if (physicalShift && sourceCode == KEY_2)
+    {
+      matrixCode = 0x55;
+      suppressShift = true;
+    }
+    else if (physicalShift && sourceCode == KEY_8)
+      matrixCode = KEY_MONKEYTALE;
+    else if (physicalShift && sourceCode == KEY_9)
+      matrixCode = KEY_9;
+    else if (physicalShift && sourceCode == KEY_0)
+      matrixCode = KEY_0;
+    else if (physicalShift && sourceCode == KEY_7)
+      matrixCode = KEY_6;
+    else if (sourceCode == KEY_SEMICOLON && physicalShift)
+    {
+      matrixCode = KEY_MONKEYTALE;
+      suppressShift = true;
+    }
+    else if (sourceCode == KEY_MONKEYTALE)
+    {
+      matrixCode = physicalShift ? KEY_2 : KEY_7;
+      syntheticShift = !physicalShift;
+    }
+    else if (sourceCode == 0x55)
+    {
+      if (physicalShift)
+        matrixCode = KEY_SEMICOLON;
+      else
+      {
+        matrixCode = KEY_MINUS;
+        syntheticShift = true;
+      }
+    }
+    key[matrixCode] = true;
+  }
+
+  key[KEY_UP] = rawKeyDown[0x75] || rawKeyDown[0x72];
+  key[KEY_RIGHT] = rawKeyDown[0x74] || rawKeyDown[0x6b];
+  shift = (!suppressShift && physicalShift) || syntheticShift || rawKeyDown[0x72] || rawKeyDown[0x6b];
+  ctrl = rawKeyDown[0x14];
+  alt = rawKeyDown[0x11];
+}
+
+void loop()
+{
+  unsigned long ts1, ts2;
+  ts1 = millis();
+  atom_run();
+  ts2 = millis();
+  while (kbd.available())
+    do_keyboard();
+  TIMERG0.wdt_wprotect = TIMG_WDT_WKEY_VALUE;
+  TIMERG0.wdt_feed = 1;
+  TIMERG0.wdt_wprotect = 0;
+  vTaskDelay(0);
+}
+
 void fastBox(int x, int y, int l, int b, int kleur)
 {
   for (int i = 0; i < l; i++)
